@@ -77,6 +77,9 @@
       <input class="field" value={groupTitle} disabled={!editable} oninput={(e) => ongrouptitle?.(e.currentTarget.value)} /></label>
     <button class="btn" onclick={() => onenter?.()}>Открыть группу (Tab)</button>
     <p class="muted small">Внутри: «Вход» и «Выход» задают сокеты этой ноды. Та же группа может стоять в графе несколько раз (Ctrl+D).</p>
+  {:else if kind.name === "watch"}
+    <button class="btn" onclick={() => onenter?.()}>Открыть наблюдение (Tab)</button>
+    <p class="muted small">Внутри — триггеры без входящего провода: каждое их срабатывание — новая ветка с инициатором — тем, кто сделал событие. «Пока» — фильтр. «Снять наблюдение» (вход или нода внутри) — больше не ловить; ветки снимаются или доживают; дальше — «Готово».</p>
   {:else if kind.name === "each"}
     <button class="btn" onclick={() => onenter?.()}>Открыть ветку (Tab)</button>
     <p class="muted small">Внутри — ветка, которая идёт отдельно для каждого элемента: от «Начала ветки» (Элемент, Номер) до «Конца ветки». Внутри можно ждать. «Готово» — когда вернулись все, любая (первая) или по количеству; остальные ветки снимаются.</p>

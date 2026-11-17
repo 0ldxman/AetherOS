@@ -12,7 +12,8 @@ export type Doc = Level & { groups?: Record<string, Group> };
 export type Sock = { name: string; label: string; type?: string };
 export type Iface = { inputs: Sock[]; outputs: Sock[] };
 export const BOXES = ["group", "scenario"];
-export const HOLDERS = ["group", "each"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
+const IN_LABELS: Record<string, string> = { stop: "Снять наблюдение" };      // входы потока, кроме «Когда»
+export const HOLDERS = ["group", "each", "watch"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
 
 // триггеры (руками игрока) и события (время, сигнал, сценарий, автор): старт без провода, ожидание со входом
 export const isTrigger = (kind: { group: string }) => kind.group === "noun" || kind.group === "happen";
@@ -133,7 +134,7 @@ function many(kind: Kind, data: Record<string, unknown>, side: string): Sock[] {
 // iface: сокеты группы или вложенного сценария (из определения группы или списка сценариев)
 export function insOf(kind: Kind, data: Record<string, unknown>, iface: Iface | null = null): Sock[] {
   if (BOXES.includes(kind.name)) return iface?.inputs ?? [];
-  return [...kind.ins.map((name) => ({ name, label: "", type: kind.in_types?.[name] ?? "event" })), ...many(kind, data, "in")];
+  return [...kind.ins.map((name) => ({ name, label: IN_LABELS[name] ?? "", type: kind.in_types?.[name] ?? "event" })), ...many(kind, data, "in")];
 }
 
 // поля ноды, у которых есть вход (тип), и поля-параметры (выбор режима) — как в Blender

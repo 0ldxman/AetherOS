@@ -139,7 +139,7 @@ def _expand(part, groups, prefix, inline, depth, seen, nodes, wires, deps):
                 _expand(inner, groups, full + "/", inline, depth + 1, seen, nodes, wires, deps)
                 boxes[nid] = (full, inner)
             continue
-        if kind == "each":
+        if kind in ("each", "watch"):
             inner = groups.get(str(data.get("group") or ""))
             nodes.append({**node, "id": full, "_inline": inline or bool(node.get("_inline"))})
             if inner is not None and depth < DEPTH_BOXES:
@@ -228,6 +228,7 @@ def rebuild_starts(graph):
         Start.objects.filter(graph=graph).delete()
         Start.objects.bulk_create(rows)
         offers.declare(graph, doc)
+    open_watches(graph)
     return rows
 
 
@@ -513,7 +514,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name in ("branch_in", "each"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
+    if kind.name in ("branch_in", "each", "watch"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -1402,6 +1403,117 @@ def _each(run, doc, node_id, queue):
         queue.extend(doc.next(node_id, "done"))
 
 
+def _listeners(doc, node_id):
+    """Триггеры «Наблюдения»: внутри его группы, без входящего провода потока, с подключёнными выходами-событиями."""
+    depth = node_id.count("/") + 1
+    found = []
+    for nid in doc.nodes:
+        if not nid.startswith(node_id + "/") or nid.count("/") != depth or nid in doc.fed:
+            continue
+        kind = doc.kind(nid)
+        if kind is None or kind.group not in N.NOUNS or kind.start_only:
+            continue
+        found += [(nid, out, N.event_of(kind, out)) for out in doc.wired(nid) if N.event_of(kind, out)]
+    return found
+
+
+def _watch_open(run, doc, node_id):
+    """Открыть наблюдение: поток стоит на ноде, внутренние триггеры ловят (ожидания-«@watch» не снимаются при срабатывании)."""
+    if Wait.objects.filter(run=run, node=node_id, out="done").exists():
+        return
+    vals = {**((run.state or {}).get("vals") or {}), node_id: {"count": 0, "initiators": []}}
+    run.state = {**(run.state or {}), "vals": vals}
+    Wait.objects.create(run=run, user=run.user, node=node_id, out="done", kind=Wait.Kind.TIME, until=None)       # держит поток
+    for nid, out, event in _listeners(doc, node_id):
+        Wait.objects.create(run=run, user=run.user, node=nid, out=out, kind=Wait.Kind.EVENT, event=event, anyone=True,
+                            data={"@watch": node_id})
+    if not _listeners(doc, node_id):
+        _log(run.graph, "«Наблюдение»: внутри нет триггеров — ловить нечего", run.user)
+
+
+def open_watches(graph):
+    """Наблюдения без провода во «Когда» идут с включения сценария: держит их свой поток (без инициатора)."""
+    if not graph.active:
+        return
+    doc = doc_of(graph)
+    fed_in = {dst for targets in doc.flow.values() for dst, inp in targets if inp == "in"}
+    for node_id, node in doc.nodes.items():
+        if node.get("type") != "watch" or node_id in fed_in or node.get("_inline"):
+            continue
+        if Run.objects.filter(graph=graph, status=Run.Status.RUNNING, waits__node=node_id, waits__out="done").exists():
+            continue
+        run = Run.objects.create(graph=graph, user=None, node=node_id, ctx={})
+        run.graph = graph
+        _watch_open(run, doc, node_id)
+        run.save(update_fields=["state"])
+
+
+def _watch_fire(wait, event):
+    """Событие для «Наблюдения»: если «Пока» верно — новая ветка с инициатором события от этого триггера."""
+    with transaction.atomic():
+        holder = Run.objects.select_for_update().select_related("graph").filter(pk=wait.run_id).first()
+        if holder is None or holder.status != Run.Status.RUNNING:
+            return None
+        node_id = (wait.data or {}).get("@watch")
+        doc = doc_of(holder.graph)
+        condition = resolved(holder, doc, node_id).get("while")
+        if condition not in (None, "") and not _holds(condition, Run(graph=holder.graph, user=event.user, ctx=_ctx_of(event), state={})):
+            return None
+        vals = dict((holder.state or {}).get("vals") or {})
+        mine = dict(vals.get(node_id) or {"count": 0, "initiators": []})
+        name = event.user.get_username() if event.user is not None else ""
+        mine["count"] = int(mine.get("count") or 0) + 1
+        if name and name not in (mine.get("initiators") or []):
+            mine["initiators"] = [*(mine.get("initiators") or []), name]
+        vals[node_id] = mine
+        holder.state = {**(holder.state or {}), "vals": vals}
+        holder.save(update_fields=["state"])
+        child = Run.objects.create(graph=holder.graph, user=event.user, node=wait.node, ctx=_ctx_of(event), parent=holder,
+                                   state={"vals": vals, "watch": node_id})
+    child.graph = holder.graph
+    capture(child, wait.node, event)
+    _hit(child, wait.node)
+    return advance(child, doc.next(wait.node, wait.out))
+
+
+def _close_watch(holder, doc, node_id, keep=None):
+    """Снять наблюдение у потока holder: ловцы и держатель убираются, ветки снимаются (кроме keep) или доживают."""
+    inner = [nid for nid in doc.nodes if nid.startswith(node_id + "/")]
+    Wait.objects.filter(run=holder).filter(Q(node=node_id) | Q(node__in=inner, data__has_key="@watch")).delete()
+    branches = Run.objects.filter(parent=holder, status=Run.Status.RUNNING, state__watch=node_id)
+    branches.filter(pk=keep).update(parent=None)                     # ветка, которая сняла, идёт дальше сама по себе
+    if (resolved(holder, doc, node_id).get("branches") or "cancel") == "cancel":
+        for child in branches.exclude(pk=keep):
+            _finish(child, "cancelled")
+            child.save(update_fields=["status", "outcome", "ended_at"])
+    else:
+        branches.update(parent=None)                                 # доживают: дальше их не снимает и конец истории
+
+
+def _watch_stop(run, doc, node_id, queue):
+    """Вход «Снять наблюдение»: у всех потоков этого сценария, которые наблюдают на этой ноде; дальше — «Готово»."""
+    holders = Run.objects.filter(graph=run.graph, status=Run.Status.RUNNING, waits__node=node_id, waits__out="done").distinct()
+    for holder in list(holders.select_related("graph")):
+        if holder.pk == run.pk:
+            _close_watch(run, doc, node_id)
+            queue.extend(doc.next(node_id, "done"))
+            continue
+        _close_watch(holder, doc, node_id)
+        advance(holder, doc.next(node_id, "done"))
+
+
+def _watch_stop_inside(child, doc):
+    """Нода «Снять наблюдение» в ветке: снять её наблюдение; сама ветка идёт дальше."""
+    node_id = (child.state or {}).get("watch")
+    holder = Run.objects.select_related("graph").filter(pk=child.parent_id, status=Run.Status.RUNNING).first() if node_id else None
+    if holder is None:
+        _log(child.graph, "«Снять наблюдение» вне наблюдения", child.user)
+        return
+    _close_watch(holder, doc, node_id, keep=child.pk)
+    child.parent_id = None
+    advance(holder, doc.next(node_id, "done"))
+
+
 def _branch_done(child):
     """Ветка дошла до «Конца ветки»: записать её в «Успели» у родителя; набралось нужное — родитель идёт в «Готово»."""
     state = child.state or {}
@@ -1468,6 +1580,16 @@ def _drain(run, doc, queue, steps):
             continue
         if kind.name == "branch_out":
             _branch_done(run)
+            continue
+        if kind.name == "watch":
+            if sock == "stop":
+                _watch_stop(run, doc, node_id, queue)
+            else:
+                _watch_open(run, doc, node_id)
+            continue
+        if kind.name == "watch_stop":
+            _watch_stop_inside(run, doc)
+            queue.extend(doc.next(node_id, "next"))
             continue
         try:
             outs = _execute(run, doc, node_id, sock)
@@ -1581,6 +1703,10 @@ def dispatch(event):
                 data = offers.match_data(wait.run.graph, doc, wait.node, data)
             account = (wait.data or {}).get("@account")
             if account and f"{event.login}@{event.host}".lower() != str(account).lower():
+                continue
+            if (wait.data or {}).get("@watch"):
+                if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
+                    touched += bool(_watch_fire(wait, event))
                 continue
             if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
