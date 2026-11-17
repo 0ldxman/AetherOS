@@ -11,23 +11,25 @@ from dataclasses import dataclass, field, replace
 from engine.actions import Field
 
 ENTITY, NOUN, FLOW, DATA, ACTION, STRUCT, SERVICE = "entity", "noun", "flow", "data", "action", "struct", "service"
-GROUPS = {ENTITY: "Сущности", NOUN: "Триггеры", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
+ATTR = "attr"                       # атрибуты: одна сторона сущности (её состояние, время, доступ) — читаются, как сущности
+GROUPS = {ENTITY: "Сущности", ATTR: "Атрибуты", NOUN: "Триггеры", FLOW: "Ход", DATA: "Данные", ACTION: "Действия", STRUCT: "Сценарии и группы", SERVICE: "Служебные"}
 
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message")
+         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message", "os")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сетевой ресурс", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
-               "datetime": "дату и время", "volume": "диск", "mount": "диск машины", "message": "сообщение"}
+               "datetime": "дату и время", "volume": "диск", "mount": "диск машины", "message": "сообщение",
+               "os": "операционную систему"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
-          "session", "volume", "mount")
+          "session", "volume", "mount", "os")
 
 # списки: «list:<тип элемента>»; «list:any» — вход, которому подходит любой список (количество)
 ELEMENTS = {"text": "Текст", "number": "Число", "bool": "Да/нет", "item": "Объект", "placement": "Размещение", "layer": "Слой", "machine": "Машина", "account": "Учётка", "server": "Сетевой ресурс",
             "character": "Персонаж", "section": "Раздел", "moment": "Момент", "player": "Игрок", "offer": "Возможность", "session": "Сессия",
-            "datetime": "Дата и время", "volume": "Диск", "mount": "Диск машины"}
+            "datetime": "Дата и время", "volume": "Диск", "mount": "Диск машины", "os": "Операционная система"}
 LIST, ANY_LIST = "list:", "list:any"
 TYPES = TYPES + tuple(LIST + name for name in ELEMENTS) + (ANY_LIST,)
 TYPE_LABELS.update({LIST + name: f"список ({label.lower()})" for name, label in ELEMENTS.items()})
@@ -67,7 +69,7 @@ def type_label(kind):
 FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "text", "expr": "text", "scene": "text", "station": "text",
                "graph": "text", "number": "number", "bool": "bool", "condition": "bool", "key": "item", "item": "item", "letter": "item",
                "object": "item", "character": "character", "section": "section", "flag": "flag", "world_flag": "world_flag",
-               "counter": "counter", "moment": "moment", "machine": "machine", "system": "text", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
+               "counter": "counter", "moment": "moment", "machine": "machine", "system": "os", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
                "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount",
                "message": "message"}      # вид поля -> тип его входа; нет в списке — параметр без входа
@@ -774,28 +776,28 @@ register(Kind("act:machine.change", "Машина: Изменить", ACTION, "{
     Field("variant", "Что изменить", "select", "", False, (("name", "Изменить имя"), ("address", "Изменить адрес"), ("system", "Изменить ОС"),
                                                            ("time_zone", "Изменить часовой пояс"), ("host_key", "Изменить ключ хоста"),
                                                            ("note", "Изменить приветствие"), ("booted", "Изменить «Включена с»"),
-                                                           ("display", "Изменить графику"), ("seats", "Изменить число мест"),
-                                                           ("lag_ms", "Изменить задержку"), ("noise_pct", "Изменить помехи"),
-                                                           ("drop_pct", "Изменить обрывы"), ("bandwidth_kbps", "Изменить пропускную способность"),
-                                                           ("input_noise_pct", "Изменить помехи ввода"), ("overload_pct", "Изменить перегрузку"),
-                                                           ("screen_noise", "Изменить помехи изображения"))),
+                                                           ("display", "Изменить графику"), ("seats", "Изменить число мест"))),
     Field("machine", "Машина", "many:machine", "", True), Field("name", "Имя", "text", "", True), Field("address", "Адрес", "text", "", True),
     Field("system", "ОС", "system", "", True), Field("time_zone", "Часовой пояс", "time_zone", "", True),
     Field("host_key", "Ключ хоста", "text", "пусто — новый случайный"), Field("note", "Приветствие", "textarea", "{note} в приветствии ОС"),
     Field("booted", "Включена с", "datetime", "2031-03-02 14:05 или «сейчас»", True),
     Field("display", "Графика", "switch", "", False, (("on", "Есть"), ("off", "Нет"))),
     Field("seats", "Мест", "number", "пусто — без ограничения"),
-    Field("lag_ms", "Задержка, мс", "number", "0 — нет; 800 — заметно, 3000 — тяжело"),
-    Field("noise_pct", "Помехи, % символов", "number", "0 — нет; 1 — изредка, 5 — сильно"),
-    Field("drop_pct", "Обрывы, % в минуту", "number", "0 — нет; 5 — примерно раз в 20 минут"),
-    Field("bandwidth_kbps", "КБ/с", "number", "0 — без ограничения; 50 — медленно"),
-    Field("input_noise_pct", "Помехи ввода, %", "number", "0 — нет; 3 — заметно"),
-    Field("overload_pct", "Перегрузка, % команд", "number", "0 — нет; 15 — заметно"),
-    Field("screen_noise", "Помехи изображения", "number", "0–100"),
 ), _ACT_OUTS, title="variant",
-   when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted", "display", "seats",
-                                                  "lag_ms", "noise_pct", "drop_pct", "bandwidth_kbps", "input_noise_pct",
-                                                  "overload_pct", "screen_noise")}))
+   when={name: ("variant", (name,)) for name in ("name", "address", "system", "time_zone", "host_key", "note", "booted", "display", "seats")}))
+# состояние машины: сколько дефектов у подключения к ней (machines/world/channel.py); (поле, подпись, подсказка, предел)
+STATE = (("lag_ms", "Задержка, мс", "0 — нет; 800 — заметно, 3000 — тяжело", None),
+         ("noise_pct", "Помехи, % символов", "0 — нет; 1 — изредка, 5 — сильно", 100),
+         ("drop_pct", "Обрывы, % в минуту", "0 — нет; 5 — примерно раз в 20 минут", 100),
+         ("bandwidth_kbps", "КБ/с", "0 — без ограничения; 50 — медленно", None),
+         ("input_noise_pct", "Помехи ввода, %", "0 — нет; 3 — заметно", 100),
+         ("overload_pct", "Перегрузка, % команд", "0 — нет; 15 — заметно", 100),
+         ("screen_noise", "Помехи изображения", "0–100: 25 — мутно, 50 — половина читается", 100))
+register(Kind("act:machine.state", "Машина: Изменить состояние", ACTION, "{machine}", (
+    Field("mode", "Как", "switch", "", False, (("set", "Задать"), ("add", "Добавить"), ("reset", "Сбросить"))),
+    Field("machine", "Машина", "many:machine", "", True),
+    *(Field(name, label, "number", hint) for name, label, hint, _ in STATE),
+), _ACT_OUTS, when={name: ("mode", ("set", "add")) for name, *_ in STATE}))
 register(Kind("act:account.change", "Учётка: Изменить", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("mail", "Изменить почту"), ("password", "Изменить пароль"), ("keys", "Установить выражение ключей"),
                                                        ("points_add", "Добавить точки входа"), ("points_remove", "Убрать точки входа"),
@@ -812,7 +814,7 @@ register(Kind("act:account.change", "Учётка: Изменить", ACTION, "{
                                       "uses": ("variant", ("token_add",)), "minutes": ("variant", ("token_add",)), "tokens": ("variant", ("token_remove",))},
     follows={"token": "account"}))
 DATA_OUTS["act:account.change"] = (Sock("token", "Токен", "many:text"),)
-register(Kind("act:account.access", "Учётка: Доступ", ACTION, "{account}", (
+register(Kind("act:account.access", "Учётка: Блокировка", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("block", "Заблокировать учётку"), ("unblock", "Разблокировать учётку"))),
     Field("account", "Учётка", "many:account", "логин@хост", True),
     Field("scope", "Кому", "select", "", False, (("player", "игроку"), ("all", "всем"))), Field("player", "Игрок", "player", "игрок хода"),
@@ -838,7 +840,7 @@ register(Kind("act:machine.disk", "Машина: Изменить диск", ACT
                                       "host": ("variant", ("remote",)), "path": ("variant", ("remote",)), "account": ("variant", ("remote",)),
                                       "read_only": ("variant", ("attach", "remote")), "mount": ("variant", ("detach",))}))
 DATA_OUTS["act:machine.disk"] = (Sock("mount", "Диск машины", "mount"),)
-MACHINE_ACTS = ("act:machine.change", "act:account.change", "act:account.access", "act:account.manage", "act:machine.disk")
+MACHINE_ACTS = ("act:machine.change", "act:machine.state", "act:account.change", "act:account.access", "act:account.manage", "act:machine.disk")
 
 # возможности: что сценарий открыл игроку в игре (graph/offers.py; письмо — mail/talk.py)
 _MAIL, _TYPED = ("channel", ("mail",)), ("channel", ("mail", "command"))
@@ -896,9 +898,7 @@ register(Kind("ent:account", "Учётка", ENTITY, "{login}", (
     Field("account", "Учётка", "account", "логин@хост"), Field("machine", "Машина", "machine"), Field("login", "Логин", "text"),
 ), ins=(), covers={"account": ("machine", "login")}))
 DATA_OUTS["ent:account"] = (Sock("value", "Учётка", "account"), Sock("machine", "Машина", "machine"), Sock("login", "Логин", "text"),
-                            Sock("name", "Имя", "text"), Sock("mail", "Почта", "text"), Sock("groups", "Группы", "list:text"),
-                            Sock("endpoints", "Точки входа", "list:text"), Sock("root", "Root", "bool"), Sock("blocked", "Заблокирована", "bool"),
-                            Sock("sessions", "Сессии", "list:session"))
+                            Sock("name", "Имя", "text"), Sock("mail", "Почта", "text"), Sock("sessions", "Сессии", "list:session"))
 
 
 # ---------- пояснения (подсказки на холсте, как в Blender) ----------
@@ -920,9 +920,23 @@ HELP = {
                  "только возможности этого сценария).",
     "on:offer.used": "Игрок использовал возможность. Выходы — по подключённой сущности: Верно / Неверно (текст, секрет и вложение), "
                      "кнопки окна, «Нажата» у файла; развилки текста — выходами-словами. Лимит попыток — счётчик по «Неверно».",
-    "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. «Заблокирована» — для игрока хода.",
+    "ent:account": "Учётка на машине: провод «Учётка» (логин@хост) или Машина + Логин. Группы, точки входа, блокировка, ключи и токены — "
+                   "в атрибуте «Учётка: Доступ».",
+    "attr:account.access": "Доступ учётки сейчас: группы, точки входа, root, ключи (выражение, как в учётке), живые токены. "
+                           "«Заблокирована» — для игрока хода.",
+    "attr:machine.state": "Состояние машины — дефекты подключения к ней: задержка, помехи вывода, обрывы, КБ/с для xfer, помехи ввода, "
+                          "перегрузка, помехи изображения стола. «Есть дефекты» — хоть что-то не ноль. Менять — «Машина: Изменить состояние».",
+    "attr:machine.time": "Время машины: её часовой пояс, местное время сейчас (часы этого пояса), «Включена с» и сколько минут она работает "
+                         "(от «Включена с»; неизвестно — 0).",
+    "act:machine.state": "Дефекты подключения к машине для всех. Задать — поставить заполненные поля; Добавить — прибавить к текущим "
+                         "(минус — убавить; проценты не выше 100, ниже нуля не бывает); Сбросить — всё в ноль. Пустое поле не меняется. "
+                         "Задержка — ответ терминала с паузой, построчно; помехи — процент сбитых символов в выводе; обрывы — шанс за минуту "
+                         "работы с машиной; КБ/с — скорость xfer; помехи ввода — подмена набираемых символов; перегрузка — доля команд, "
+                         "которые не выполняются; помехи изображения — картинка стола как у плохой трансляции.",
+    "ent:os": "Операционная система: выбрать в ноде или проводом «ОС» из машины. Код (AETHER), название, диалект путей (unix, windows, "
+              "vms…), приветствие и все машины на ней.",
     "act:machine.change": "Свойство машины для всех — что выбрано: имя, адрес, ОС, часовой пояс, ключ хоста (пусто — новый случайный: игрок, "
-                          "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает). Графика — без неё rcon отказывает, входят только rshell, xfer и раздачи. Число мест — сколько игроков одновременно (пусто — без ограничения). Задержка, мс — ответ терминала с паузой, построчно; помехи — процент сбитых символов в выводе терминала; обрывы — шанс за минуту работы с машиной; КБ/с — скорость xfer; помехи ввода — подмена набираемых символов; перегрузка — доля команд, которые не выполняются; помехи изображения — сбои картинки стола.",
+                          "который уже заходил, заметит подмену), приветствие ({note}), «Включена с» (от неё считается uptime; включение машины её не трогает). Графика — без неё rcon отказывает, входят только rshell, xfer и раздачи. Число мест — сколько игроков одновременно (пусто — без ограничения). Помехи, задержка и прочие дефекты — «Машина: Изменить состояние».",
     "act:account.change": "Учётка: почта, пароль (для всех), выражение ключей, точки входа и группы (добавить или убрать, одно или список), "
                           "токены: создать (выход «Токен» — строка, её можно вписать в письмо) или удалить (пусто — все).",
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
@@ -996,7 +1010,7 @@ HELP = {
     "read": "Прочитать сейчас: счётчик или метку мира, счётчик или метку игрока хода.",
     "ent:machine": "Машина: выбрать в ноде, получить проводом или найти по хосту/имени из текста. Свойства — как сейчас. Диски — что "
                    "подключено в её точках (список «Машина: Диск»). Сессии — все игроки на машине, свежие первыми: в «Сессия: Закрыть» — "
-                   "выбросить всех с машины.",
+                   "выбросить всех с машины. Дефекты связи — атрибут «Машина: Состояние», часы — «Машина: Время».",
     "ent:volume": "Диск автора (том): по слагу или названию. «Где подключён» — точки машин, где он стоит.",
     "ent:mount": "Что стоит в точке машины: провод «хост:/точка» или Машина + Точка. Тип: диск (том автора, выход «Диск») или сетевой "
                  "(Хост, Путь, Учётка хоста). «Есть» — подключено ли сейчас.",
@@ -1230,12 +1244,28 @@ def _entity(name, label, field, outs):
 
 _entity("ent:machine", "Машина", Field("machine", "Машина", "machine"),
         (Sock("value", "Машина", "machine"), Sock("name", "Имя", "text"), Sock("address", "Адрес", "text"),
-         Sock("system", "ОС", "text"), Sock("up", "Работает", "bool"), Sock("disks", "Диски", "list:mount"),
+         Sock("system", "Операционная система", "os"), Sock("up", "Работает", "bool"), Sock("disks", "Диски", "list:mount"),
          Sock("sessions", "Сессии", "list:session"), Sock("display", "Графика", "bool"), Sock("seats", "Мест", "number"),
-         Sock("taken", "Занято мест", "number"), Sock("lag_ms", "Задержка, мс", "number"), Sock("noise_pct", "Помехи, %", "number"),
-         Sock("drop_pct", "Обрывы, % в минуту", "number"), Sock("bandwidth_kbps", "КБ/с", "number"),
-         Sock("input_noise_pct", "Помехи ввода, %", "number"), Sock("overload_pct", "Перегрузка, %", "number"),
-         Sock("screen_noise", "Помехи изображения", "number")))
+         Sock("taken", "Занято мест", "number")))
+_entity("ent:os", "Операционная система", Field("system", "Операционная система", "system"),
+        (Sock("value", "ОС", "os"), Sock("code", "Код", "text"), Sock("name", "Название", "text"), Sock("dialect", "Диалект", "text"),
+         Sock("greeting", "Приветствие", "text"), Sock("machines", "Машины", "list:machine")))
+
+
+def _attr(name, label, field, outs):
+    """Атрибут: одна сторона сущности. Вещь — проводом из сущности (или выбрана в ноде), выходы — её свойства этой темы."""
+    register(Kind(name, label, ATTR, "{%s}" % field.name, (field,), ins=()))
+    DATA_OUTS[name] = outs
+
+
+_attr("attr:machine.state", "Машина: Состояние", Field("machine", "Машина", "machine"),
+      tuple(Sock(name, label, "number") for name, label, _, _ in STATE) + (Sock("defects", "Есть дефекты", "bool"),))
+_attr("attr:machine.time", "Машина: Время", Field("machine", "Машина", "machine"),
+      (Sock("zone", "Часовой пояс", "text"), Sock("local", "Местное время", "datetime"), Sock("booted", "Включена с", "datetime"),
+       Sock("uptime", "Работает, мин", "number")))
+_attr("attr:account.access", "Учётка: Доступ", Field("account", "Учётка", "account", "логин@хост"),
+      (Sock("groups", "Группы", "list:text"), Sock("endpoints", "Точки входа", "list:text"), Sock("root", "Root", "bool"),
+       Sock("blocked", "Заблокирована", "bool"), Sock("keys", "Выражение ключей", "text"), Sock("tokens", "Токены", "list:text")))
 _entity("ent:volume", "Диск", Field("volume", "Диск", "volume"),
         (Sock("value", "Диск", "volume"), Sock("name", "Название", "text"), Sock("where", "Где подключён", "list:mount")))
 register(Kind("ent:mount", "Машина: Диск", ENTITY, "{point}{mount}", (

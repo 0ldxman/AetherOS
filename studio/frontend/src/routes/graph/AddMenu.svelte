@@ -15,7 +15,7 @@
   $effect(() => { input?.focus(); });
 
   // Порядок: тип ноды (назначение), внутри — пространство «Машина: …», «Размещение: …»; без пространства — первыми.
-  const ORDER = ["noun", "action", "flow", "data", "entity", "struct", "service"];
+  const ORDER = ["noun", "action", "flow", "data", "entity", "attr", "struct", "service"];
   const groupLabel = (name: string) => catalog.groups.find((g) => g.name === name)?.label ?? name;
   const split = (kind: Kind) => {
     const at = kind.label.indexOf(": ");

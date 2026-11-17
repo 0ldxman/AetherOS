@@ -47,9 +47,26 @@ def _props(name, key, run):
         m = _machine(key)
         return m and {"value": m.hostname, "name": m.name, "host": m.hostname, "address": m.address, "system": m.system,
                       "up": not power.is_down(m), "disks": disks.of_machine(m), "sessions": sessions.of_machine(m), "display": m.display,
-                      "seats": m.seats or 0, "taken": _taken(m), "lag_ms": m.lag_ms, "noise_pct": m.noise_pct, "drop_pct": m.drop_pct,
-                      "bandwidth_kbps": m.bandwidth_kbps, "input_noise_pct": m.input_noise_pct, "overload_pct": m.overload_pct,
-                      "screen_noise": m.screen_noise}
+                      "seats": m.seats or 0, "taken": _taken(m)}
+    if name == "attr:machine.state":
+        from graph import nodes as N
+
+        m = _machine(key)
+        found = m and {field: getattr(m, field) for field, *_ in N.STATE}
+        return found and {**found, "defects": any(found.values())}
+    if name == "attr:machine.time":
+        m = _machine(key)
+        return m and machine_time(m, getattr(run, "user", None))
+    if name == "attr:account.access":
+        return access(run, key)
+    if name == "ent:os":
+        from machines.models import Machine, SystemType
+
+        found = SystemType.objects.filter(Q(code__iexact=key) | Q(name__iexact=key)).order_by("pk").first() if key else None
+        return found and {"value": found.code, "code": found.code, "name": found.name, "dialect": found.path_style,
+                          "greeting": found.greeting,
+                          "machines": list(Machine.objects.filter(system=found.code).exclude(hostname="").order_by("hostname")
+                                           .values_list("hostname", flat=True))}
     if name == "ent:server":
         from machines.models import NetResource
 
@@ -93,6 +110,42 @@ def _props(name, key, run):
         return user and {"value": user.get_username(), "name": user.get_username(),
                          "callsign": Callsign.objects.filter(profile__machine__hostname="aether-main", profile__user=user).values_list("name", flat=True).first() or ""}
     return None
+
+
+def machine_time(machine, user=None):
+    """«Машина: Время»: пояс, часы машины сейчас (со сдвигом часов игрока), «Включена с» и минуты работы от неё."""
+    from datetime import timezone as dt_timezone
+
+    from graph import times
+    from machines.world import chrono, clock
+
+    now = clock.now(machine, user)
+    booted = machine.booted_at
+    return {"zone": str(chrono.zone(machine)), "local": times.text(now.replace(tzinfo=dt_timezone.utc)),
+            "booted": times.text(booted.replace(microsecond=0)) if booted else "",
+            "uptime": max(0, int((now - booted).total_seconds() // 60)) if booted else 0}
+
+
+def access(run, key):
+    """«Учётка: Доступ»: группы, точки входа, root, блокировка для игрока хода, выражение ключей и живые токены."""
+    from django.db.models import F
+    from django.utils import timezone
+
+    from machines.models import AccountBlock
+    from machines.world import edits
+    from secure.access import format_condition
+
+    profile = edits.account(key) if key else None
+    if profile is None:
+        return None
+    user = getattr(run, "user", None)
+    now = timezone.now()
+    blocks = AccountBlock.objects.filter(profile=profile, until__gt=now)
+    blocked = blocks.filter(Q(user=None) | Q(user=user)).exists() if user is not None else blocks.filter(user=None).exists()
+    tokens = (profile.tokens.filter(Q(max_usage=None) | Q(usage__lt=F("max_usage"))).filter(Q(expires_at=None) | Q(expires_at__gt=now))
+              .order_by("pk").values_list("token", flat=True))
+    return {"groups": list(profile.groups or []), "endpoints": list(profile.endpoints or []), "root": bool(profile.root), "blocked": blocked,
+            "keys": format_condition(profile.key_condition) if profile.key_condition else "", "tokens": list(tokens)}
 
 
 def read(run, kind, key, out):
@@ -223,11 +276,8 @@ def mount(run, kind, data, out):
 
 
 def account(run, kind, data, out):
-    """«Учётка»: по проводу «логин@хост» или по машине и логину — её свойства сейчас. «Заблокирована» — для игрока хода."""
-    from django.db.models import Q
-    from django.utils import timezone
-
-    from machines.models import AccountBlock, MachineProfile
+    """«Учётка»: по проводу «логин@хост» или по машине и логину — её свойства сейчас (доступ — в «Учётка: Доступ»)."""
+    from machines.models import MachineProfile
     from machines.world import edits
 
     key = _key(data.get("account"))
@@ -238,13 +288,8 @@ def account(run, kind, data, out):
         profile = MachineProfile.objects.filter(machine=machine, login=login).first() if machine is not None and login else None
     if profile is None:
         return _blank(kind, out)
-    user = getattr(run, "user", None)
-    blocks = AccountBlock.objects.filter(profile=profile, until__gt=timezone.now())
-    blocked = blocks.filter(Q(user=None) | Q(user=user)).exists() if user is not None else blocks.filter(user=None).exists()
     from graph import sessions
 
     props = {"value": edits.account_key(profile), "machine": profile.machine.hostname or "", "login": profile.login, "name": profile.name,
-             "sessions": sessions.of_account(profile),
-             "mail": profile.mail, "groups": list(profile.groups or []), "endpoints": list(profile.endpoints or []), "root": bool(profile.root),
-             "blocked": blocked}
+             "sessions": sessions.of_account(profile), "mail": profile.mail}
     return props.get(out, _blank(kind, out))

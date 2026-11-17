@@ -45,8 +45,7 @@ class MachineActTests(TestCase):
     def test_account_entity(self):
         doc = Doc({"nodes": [node("u", "ent:account", account="ops@core")], "wires": []})
         get = lambda out: value_of(type("R", (), {"user": self.ivan, "state": {}, "ctx": {}})(), doc, "u", out)      # noqa: E731
-        self.assertEqual([get(o) for o in ("value", "machine", "login", "groups", "endpoints", "blocked")],
-                         ["ops@core", "core", "ops", ["staff"], ["22.000"], False])
+        self.assertEqual([get(o) for o in ("value", "machine", "login", "name")], ["ops@core", "core", "ops", "Ops"])
 
     def test_change_account(self):
         self.act("act:account.change", variant="password", account="ops@core", password="s3cret")

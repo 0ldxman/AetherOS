@@ -529,7 +529,7 @@ def value_of(run, doc, node_id, out, depth=0):
     get = lambda name: input_of(run, doc, node_id, name, depth + 1)       # noqa: E731
     if kind.name == "act:mail" and out == "item":                       # письмо, которое отправляет нода
         return get("item")
-    if kind.group == N.ENTITY:
+    if kind.group in (N.ENTITY, N.ATTR):
         from graph import entities
 
         if kind.name == "session.find":
@@ -977,6 +977,29 @@ def _layer_act(run, node_id, kind, data):
     return ["fail"] if failed or not keys else ["next"]
 
 
+def _state(machine, mode, data):
+    """Новые значения дефектов машины для «Изменить состояние»: заполненные поля (задать или прибавить) или всё в ноль."""
+    from machines.world import edits
+
+    found = {}
+    for name, _, _, top in N.STATE:
+        if mode == "reset":
+            found[name] = 0
+            continue
+        raw = str(data.get(name) if data.get(name) is not None else "").strip().replace(",", ".")
+        if not raw:
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            raise edits.EditError(f"не число: «{raw}»") from None
+        if mode == "add":
+            value += float(getattr(machine, name) or 0)
+        value = max(0.0, value if top is None else min(float(top), value))
+        found[name] = value
+    return found
+
+
 def _machine_act(run, node_id, kind, data):
     """Машина и учётки: «Изменить», «Изменить учётку», «Доступ к учётке», «Создать или удалить учётку». С каждой из списка."""
     from graph import entities
@@ -998,14 +1021,6 @@ def _machine_act(run, node_id, kind, data):
                 if what == "display":
                     edits.change_machine(machine, display=(data.get("display") or "on") != "off")
                     continue
-                if what in ("lag_ms", "noise_pct", "drop_pct", "bandwidth_kbps", "input_noise_pct", "overload_pct", "screen_noise"):
-                    raw = str(data.get(what) if data.get(what) is not None else "0").strip() or "0"
-                    try:
-                        number_value = float(raw)
-                    except ValueError:
-                        raise edits.EditError(f"не число: «{raw}»") from None
-                    edits.change_machine(machine, **{what: number_value})
-                    continue
                 if what == "seats":
                     raw = str(data.get("seats") if data.get("seats") is not None else "").strip()
                     edits.change_machine(machine, seats=int(float(raw)) if raw.replace(".", "", 1).isdigit() else None)
@@ -1018,6 +1033,15 @@ def _machine_act(run, node_id, kind, data):
                 edits.change_machine(machine, **{"booted" if what == "booted" else what: _fill(value, run) if what == "note" else value})
             if not _as_list(raw):
                 raise edits.EditError("не выбрана машина")
+        elif kind.name == "act:machine.state":
+            raw = data.get("machine")
+            if not _as_list(raw):
+                raise edits.EditError("не выбрана машина")
+            for key in _as_list(raw):
+                machine = entities._machine(entities._key(key))
+                if machine is None:
+                    raise edits.EditError(f"нет машины «{key}»")
+                edits.change_machine(machine, **_state(machine, data.get("mode") or "set", data))
         elif kind.name == "act:account.manage" and (mode or "create") == "create":
             machine = entities._machine(entities._key(data.get("machine")))
             if machine is None:
@@ -1288,7 +1312,7 @@ def _drain(run, doc, queue, steps):
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
-        if kind is None or kind.name in ("note", "frame") or kind.group in (N.DATA, N.ENTITY):
+        if kind is None or kind.name in ("note", "frame") or kind.group in (N.DATA, N.ENTITY, N.ATTR):
             continue
         if doc.nodes[node_id].get("mute"):                 # выключенная нода пропускает поток насквозь (как M в Blender)
             if "next" in N.sockets(kind, doc.data(node_id), "out"):

@@ -16,7 +16,7 @@ export const BOXES = ["group", "scenario"];
 export const REF = "ref";
 export const TIMEOUT = "timeout";
 export const OFFER_USED = "on:offer.used";          // выходы — по сущности «Возможность» на проводе (graph/offers.used_outs)
-export const COLORS: Record<string, string> = { entity: "#2f7d6d", noun: "#c2547a", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
+export const COLORS: Record<string, string> = { entity: "#2f7d6d", attr: "#5e8f3e", noun: "#c2547a", flow: "#a7793a", data: "#8a5d7a", action: "#4d6fc4", struct: "#7a5aa8", service: "#5b6170" };
 
 // Типы сокетов: цвет у точки и провода. event — «случилось» (поток), остальные — вещи, которые едут по ◆-проводу.
 export const TYPES: Record<string, { label: string; color: string; thing?: boolean }> = {
@@ -43,6 +43,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   volume: { label: "Диск", color: "#b0a07a", thing: true },
   mount: { label: "Диск машины", color: "#6fb38f", thing: true },
   message: { label: "Сообщение", color: "#d9a3c4", thing: true },
+  os: { label: "Операционная система", color: "#9a8cff", thing: true },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)
@@ -257,7 +258,7 @@ export function titleOf(kind: Kind, data: Record<string, unknown>, usedIn: strin
   const value = String(data[kind.title] ?? field?.options[0]?.value ?? "");
   const chosen = field?.options.find((o) => o.value === value)?.label;
   if (!chosen) return kind.label;
-  const space = kind.label.includes(": ") ? kind.label.split(": ")[0] : kind.group === "entity" ? kind.label : "";   // «Время: по дням недели», «Возможность: Письмо»
+  const space = kind.label.includes(": ") ? kind.label.split(": ")[0] : ["entity", "attr"].includes(kind.group) ? kind.label : "";   // «Время: по дням недели», «Возможность: Письмо»
   return space ? `${space}: ${chosen}` : chosen;
 }
 
