@@ -124,7 +124,7 @@ def _iface_of(node, groups, add, key):
     return iface(other.doc)
 
 
-def _part(part, groups, prefix, add, slug):
+def _part(part, groups, prefix, add, slug, names=()):
     """Проверка одного уровня: самого графа или определения группы (ключ ноды — prefix + id)."""
     from engine import actions as engine
     from graph.runtime import _load
@@ -215,6 +215,12 @@ def _part(part, groups, prefix, add, slug):
             _, action = N.action_of(kind, data)
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
+        if kind.name == "branch_gate" and (node_id, "branches") not in doc.refs:
+            title = str(data.get("name") or "").strip()
+            if not title:
+                add(key, "укажите «Название ветвления» или подключите провод «Ветвление»")
+            elif title not in names:
+                add(key, f"нет ветвления с названием «{title}»")
         if kind.name == "branching":
             types = {(n or {}).get("type") for n in ((groups.get(str(data.get("group") or "")) or {}).get("nodes") or [])}
             if "branch_head" not in types:
@@ -280,11 +286,13 @@ def problems(raw, slug="", owner=""):
         if found not in out:                     # одно и то же видят проверка полей и проверка действия движка — показать раз
             out.append(found)
 
-    _part(raw, groups, "", add, slug)
+    names = {str(((n or {}).get("data") or {}).get("name") or "").strip() for level in [raw, *groups.values()] for n in (level or {}).get("nodes") or []
+             if isinstance(n, dict) and n.get("type") == "branching"} - {""}
+    _part(raw, groups, "", add, slug, names)
     if owner:
         _owned_rules(raw, add)
     for gid, part in groups.items():
-        _part(part, groups, f"{gid}::", add, slug)
+        _part(part, groups, f"{gid}::", add, slug, names)
     flat = Doc(flatten(raw, slug))
     if flat.nodes and not owner and not any(flat.is_start(node_id) and flat.wired(node_id) for node_id in flat.nodes):
         has_entry = any(node.get("type") == "group_in" for node in raw.get("nodes") or [])

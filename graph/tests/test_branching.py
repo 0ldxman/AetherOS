@@ -195,3 +195,27 @@ class CheckTests(BranchingBase):
         doc = self.doc(repeat="no")
         doc["groups"]["g1"] = {"title": "x", "nodes": [], "wires": []}
         self.assertTrue(any(p["level"] == "error" and "Начала ветки" in p["text"] for p in check.problems(doc)))
+
+
+class GateByNameTests(BranchingBase):
+    def doc_named(self, name="Заявки", gate_name="Заявки"):
+        doc = self.doc(repeat="yes", name=name)
+        doc["nodes"] += [node("shut", "manual"), node("g", "branch_gate", mode="close", name=gate_name)]
+        doc["wires"] += [wire("shut", "fire", "g")]
+        return doc
+
+    def test_gate_finds_branching_by_name(self):
+        graph = self.graph(self.doc_named())
+        self.assertEqual(self.errors(graph), [])
+        start_manual(graph, "m", self.boris)
+        self.assertEqual(self.free(), 1)
+        start_manual(graph, "shut", self.boris)
+        self.assertEqual(self.free(), 0)
+
+    def test_unknown_name_is_error(self):
+        doc = self.doc_named(gate_name="Нет такого")
+        self.assertTrue(any(p["level"] == "error" and "нет ветвления" in p["text"] for p in check.problems(doc)))
+
+    def test_no_name_no_wire_is_error(self):
+        doc = self.doc_named(gate_name="")
+        self.assertTrue(any(p["level"] == "error" and "Название ветвления" in p["text"] for p in check.problems(doc)))

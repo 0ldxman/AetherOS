@@ -1522,8 +1522,11 @@ def _gate(run, doc, node_id, data):
     from graph.models import Branching
 
     forks = [src for (dst, name), (src, _) in doc.refs.items() if dst == node_id and name == "branches"]
+    title = str(data.get("name") or "").strip()
+    if not forks and title:
+        forks = [nid for nid in doc.nodes if doc.kind(nid) is not None and doc.kind(nid).name == "branching" and str(doc.data(nid).get("name") or "").strip() == title]
     if not forks:
-        _log(run.graph, "«Повтор ветвления»: не подключено ветвление", run.user)
+        _log(run.graph, "«Повтор ветвления»: не найдено ветвление" + (f" «{title}»" if title else ": укажите название или подключите провод"), run.user)
     for fork in forks:
         spawn, _ = Branching.objects.get_or_create(graph=run.graph, node=fork)
         if data.get("mode") == "open":
