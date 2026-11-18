@@ -188,6 +188,7 @@ class Branching(models.Model):
     open = models.BooleanField("Открыт", default=True)
     taken = models.PositiveIntegerField("Занято веток", default=0)
     users = models.JSONField("Сколько веток у игрока", default=dict, blank=True)     # {номер игрока: веток}
+    base = models.JSONField("Данные новой ветки", default=dict, blank=True)         # данные потока на входе в ветвление: их получает каждая новая ветка
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("graph", "node"), name="unique_graph_branching")]

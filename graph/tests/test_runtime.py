@@ -52,23 +52,17 @@ class StartTests(TestCase):
         emit("command.run", self.ivan, machine="dock", login="guest", command="login")
         self.assertEqual(counter(), 0)
 
-    def test_once_per_player_by_default(self):
+    def test_player_start_once_per_game(self):
         self.login_graph()
         for _ in range(2):
             emit("command.run", self.ivan, machine="archive", command="login")
         emit("command.run", self.anna, machine="archive", command="login")
-        self.assertEqual(counter(), 2)                                      # по разу на каждого игрока
+        self.assertEqual(counter(), 1)                                      # сюжет один на всех: первый запустил
 
-    def test_once_per_game(self):
-        self.login_graph(repeat="game")
-        emit("command.run", self.ivan, machine="archive", command="login")
-        emit("command.run", self.anna, machine="archive", command="login")
-        self.assertEqual(counter(), 1)                                      # прохождение одно на всех: первый запустил
-
-    def test_repeat_always(self):
-        self.login_graph(repeat="always")
+    def test_world_event_starts_every_time(self):
+        graph = make([node("m", "manual"), node("a", "do:world_count", name="c")], [wire("m", "fire", "a")])
         for _ in range(3):
-            emit("command.run", self.ivan, machine="archive", command="login")
+            runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(counter(), 3)
 
     def test_inactive_graph_does_nothing(self):

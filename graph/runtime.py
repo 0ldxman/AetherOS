@@ -521,6 +521,12 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
+    if kind.name == "branch_data":                    # данные потока по имени
+        found = ((run.state or {}).get("data") or {}).get(str(data.get("name") or "").strip())
+        if out == "number":
+            number = _number(found)
+            return _plain(number) if number is not None else 0
+        return "" if found is None else found
     if kind.name == "branch_head":                    # кому сейчас принадлежит ветка
         return run.crew.name if run.crew_id else run.owner.get_username() if run.owner_id else ""
     if kind.name in ("wait_cond", "join", "crew"):                     # значения, которые нода записала при выполнении
@@ -1306,6 +1312,11 @@ def _execute(run, doc, node_id, sock):
         return _join(run, doc, node_id, data, sock)
     if name == "crew":
         return _crew(run, doc, node_id, data)
+    if name == "branch_set":
+        key = str(data.get("name") or "").strip()
+        if key:
+            run.state = {**(run.state or {}), "data": {**((run.state or {}).get("data") or {}), key: _plain(data.get("value"))}}
+        return ["next"]
     if name == "branch_owner":
         return _owner(run, doc, data)
     if name == "branch_unowner":
@@ -1361,10 +1372,10 @@ def _head_of(doc, node_id):
                  and nid.count("/") == node_id.count("/") + 1), None)
 
 
-def _branch(graph, doc, node_id, start_at, parent=None, vacancy=False):
-    """Новая ветка «Ветвления»: свободная (без владельца), идёт от «Начала ветки» до первого ожидания."""
+def _branch(graph, doc, node_id, start_at, parent=None, vacancy=False, data=None):
+    """Новая ветка «Ветвления»: свободная (без владельца), идёт от «Начала ветки» до первого ожидания. Данные потока копируются."""
     child = Run.objects.create(graph=graph, user=None, node=start_at, ctx={}, parent=parent,
-                               state={"vals": {}, "fork": node_id, **({"vacancy": True} if vacancy else {})})
+                               state={"vals": {}, "fork": node_id, "data": dict(data or {}), **({"vacancy": True} if vacancy else {})})
     child.graph = graph
     _hit(child, start_at)
     advance(child, doc.next(start_at, "next"))
@@ -1377,7 +1388,7 @@ def _room(spawn, data):
     return not total or spawn.taken < total
 
 
-def _open_vacancy(graph, doc, node_id, parent=None):
+def _open_vacancy(graph, doc, node_id, parent=None, data=None):
     """Открыть свободную ветку «Ветвления» с повтором, если повтор включён, есть место и свободной ветки ещё нет."""
     from graph.models import Branching
 
@@ -1386,11 +1397,14 @@ def _open_vacancy(graph, doc, node_id, parent=None):
         return None
     with transaction.atomic():
         spawn, _ = Branching.objects.select_for_update().get_or_create(graph=graph, node=node_id)
+        if data is not None and spawn.base != data:
+            spawn.base = data                                    # данные на входе в ветвление: их получат и все следующие ветки
+            spawn.save(update_fields=["base"])
         if not spawn.open or not _room(spawn, doc.data(node_id)):
             return None
         if Run.objects.filter(graph=graph, status=Run.Status.RUNNING, state__fork=node_id, state__vacancy=True).exists():
             return None
-        return _branch(graph, doc, node_id, start_at, parent, vacancy=True)
+        return _branch(graph, doc, node_id, start_at, parent, vacancy=True, data=spawn.base)
 
 
 def _branching(run, doc, node_id, queue):
@@ -1400,10 +1414,11 @@ def _branching(run, doc, node_id, queue):
     if start_at is None:
         _log(run.graph, "«Ветвление»: внутри нет «Начала ветки»", run.user)
         return
+    flow_data = dict((run.state or {}).get("data") or {})
     if doc.data(node_id).get("repeat") == "yes":
-        _open_vacancy(run.graph, doc, node_id, run)
+        _open_vacancy(run.graph, doc, node_id, run, flow_data)
     else:
-        _branch(run.graph, doc, node_id, start_at, run)
+        _branch(run.graph, doc, node_id, start_at, run, data=flow_data)
 
 
 def _vacancy_accepts(wait, event):
@@ -1414,8 +1429,9 @@ def _vacancy_accepts(wait, event):
     if event.user is None or not node_id:
         return True
     spawn = Branching.objects.filter(graph=wait.run.graph, node=node_id).first()
-    per = _int(doc_of(wait.run.graph).data(node_id), "per", 1)
-    return spawn is None or int((spawn.users or {}).get(str(event.user.pk), 0)) < per
+    raw = str(doc_of(wait.run.graph).data(node_id).get("per") if doc_of(wait.run.graph).data(node_id).get("per") is not None else "").strip()
+    per = 1 if raw == "" else _int({"per": raw}, "per", 0)                  # пусто — 1, 0 — без предела
+    return spawn is None or per == 0 or int((spawn.users or {}).get(str(event.user.pk), 0)) < per
 
 
 def _occupy(run, event):
@@ -1563,8 +1579,10 @@ def _drain(run, doc, queue, steps):
 
 # ---------- старт и пробуждение ----------
 
+# События мира, времени и автора (группа «События»), «Пока» и выходы попыток у вещей срабатывают каждый раз; триггер игрока запускает сюжет один раз за игру
 DEFAULT_REPEAT = {"manual": "always", "while": "always", "on:time": "always", "on:schedule": "always",
-                  "on:moment.status": "always", "on:machine.status": "always"}
+                  "on:moment.status": "always", "on:machine.status": "always",
+                  N.USED_OFFER: "always"}                     # возможность сама закрывается игроку после использования: каждое использование — свой ход
 
 
 def start(graph, node_id, out, user=None, ctx=None, repeat=None):
@@ -1573,17 +1591,11 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     kind = doc.kind(node_id)
     if kind is None:
         return None
-    repeat = repeat or doc.data(node_id).get("repeat") or DEFAULT_REPEAT.get(kind.name, "once")
+    repeat = repeat or ("always" if kind.group == N.HAPPEN or kind.owned or kind.name in DEFAULT_REPEAT else "game")
     with transaction.atomic():
         Graph.objects.select_for_update().filter(pk=graph.pk).first()      # два события сразу: правило повтора видит одно
-        runs = Run.objects.filter(graph=graph, node=node_id)
-        mine = runs.filter(user=user)                                     # «один раз» и «снова после конца» — у каждого игрока свои
-        if repeat == "game" and runs.exists():
-            return None
-        if repeat == "once" and mine.exists():
-            return None
-        if repeat == "end" and mine.filter(status=Run.Status.RUNNING).exists():
-            return None
+        if repeat == "game" and Run.objects.filter(graph=graph, node=node_id).exists():
+            return None                                                   # сюжет один на всех: старт игрока срабатывает один раз за игру
         run = Run.objects.create(graph=graph, user=user, node=node_id, ctx=ctx or {})
     run.graph = graph
     capture(run, node_id, ctx=ctx or {})

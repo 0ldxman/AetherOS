@@ -32333,13 +32333,6 @@
       "title": "Kinds",
       "type": "array"
      },
-     "start_fields": {
-      "items": {
-       "$ref": "#/components/schemas/GrField"
-      },
-      "title": "Start Fields",
-      "type": "array"
-     },
      "wait_fields": {
       "items": {
        "$ref": "#/components/schemas/GrField"
@@ -32365,7 +32358,6 @@
     "required": [
      "groups",
      "kinds",
-     "start_fields",
      "wait_fields",
      "types",
      "socket_help"

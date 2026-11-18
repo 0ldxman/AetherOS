@@ -117,7 +117,6 @@ class GrGroup(Schema):
 class GrCatalog(Schema):
     groups: list[GrGroup]
     kinds: list[GrKind]
-    start_fields: list[GrField]
     wait_fields: list[GrField]
     types: list[str]
     socket_help: dict[str, str]

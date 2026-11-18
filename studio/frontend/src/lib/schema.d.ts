@@ -11889,8 +11889,6 @@ export interface components {
             groups: components["schemas"]["GrGroup"][];
             /** Kinds */
             kinds: components["schemas"]["GrKind"][];
-            /** Start Fields */
-            start_fields: components["schemas"]["GrField"][];
             /** Wait Fields */
             wait_fields: components["schemas"]["GrField"][];
             /** Types */

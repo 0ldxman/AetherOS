@@ -268,3 +268,27 @@ def attributes(doc):
         if isinstance(group, dict):
             changed = _level(group) or changed
     return changed
+
+
+START_KINDS_KEEP = ("branching",)          # у «Ветвления» «Повторять» — своё поле
+
+
+def _repeat_level(level):
+    changed = False
+    for node in (level or {}).get("nodes") or []:
+        data = node.get("data") if isinstance(node, dict) else None
+        if isinstance(data, dict) and "repeat" in data and node.get("type") not in START_KINDS_KEEP:
+            del data["repeat"]
+            changed = True
+    return changed
+
+
+def start_repeat(doc):
+    """Поля «Запускать» больше нет: старт игрока срабатывает один раз за игру, события мира — каждый раз. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _repeat_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _repeat_level(group) or changed
+    return changed

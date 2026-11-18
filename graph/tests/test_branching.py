@@ -219,3 +219,53 @@ class GateByNameTests(BranchingBase):
     def test_no_name_no_wire_is_error(self):
         doc = self.doc_named(gate_name="")
         self.assertTrue(any(p["level"] == "error" and "Название ветвления" in p["text"] for p in check.problems(doc)))
+
+
+class FlowDataTests(BranchingBase):
+    """«Ветка: Данные установить» и «Ветка: Данные»: данные идут с потоком и копируются в новые ветки."""
+
+    def doc_data(self, repeat="no"):
+        inner = [node("h", "branch_head"), node("t1", "on:terminal.command", command="go"), node("dd", "branch_data", name="color"),
+                 node("c", "do:world_count", name="x"), node("o", "branch_out")]
+        wires = [wire("h", "next", "t1"), wire("t1", "run", "c"), wire("dd", "value", "c", "f:name"), wire("c", "next", "o")]
+        return {"nodes": [node("m", "manual"), node("s", "branch_set", name="color", value="red"),
+                          node("b", "branching", group="g1", repeat=repeat, per=1)],
+                "wires": [wire("m", "fire", "s"), wire("s", "next", "b")], "groups": {"g1": {"title": "Ветвление", "nodes": inner, "wires": wires}}}
+
+    def test_branch_reads_data_set_before_branching(self):
+        graph = self.graph(self.doc_data())
+        self.assertEqual(self.errors(graph), [])
+        start_manual(graph, "m", self.boris)
+        self.cmd(self.ivan, "go")
+        self.assertEqual(count("red"), 1)
+
+    def test_every_vacancy_gets_the_same_data(self):
+        start_manual(self.graph(self.doc_data(repeat="yes")), "m", self.boris)
+        self.cmd(self.ivan, "go")
+        self.cmd(self.anna, "go")
+        self.assertEqual(count("red"), 2)
+
+    def test_branch_data_is_its_own(self):
+        doc = self.doc_data()
+        doc["groups"]["g1"]["nodes"].append(node("ch", "branch_set", name="color", value="green"))
+        g = doc["groups"]["g1"]
+        g["wires"] = [wire("h", "next", "t1"), wire("t1", "run", "ch"), wire("ch", "next", "c"), wire("dd", "value", "c", "f:name"), wire("c", "next", "o")]
+        start_manual(self.graph(doc), "m", self.boris)
+        self.cmd(self.ivan, "go")
+        self.assertEqual((count("green"), count("red")), (1, 0))
+
+
+class StartOnceTests(BranchingBase):
+    def test_player_start_fires_once_per_game(self):
+        doc = {"nodes": [node("t", "on:terminal.command", command="go"), counter("c", "n")], "wires": [wire("t", "run", "c")]}
+        self.graph(doc)
+        self.cmd(self.ivan, "go")
+        self.cmd(self.anna, "go")
+        self.assertEqual(count("n"), 1)
+
+    def test_world_events_start_every_time(self):
+        doc = {"nodes": [node("m", "manual"), counter("c", "n")], "wires": [wire("m", "fire", "c")]}
+        graph = self.graph(doc)
+        start_manual(graph, "m", self.ivan)
+        start_manual(graph, "m", self.ivan)
+        self.assertEqual(count("n"), 2)
