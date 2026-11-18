@@ -226,6 +226,39 @@ def wait_nodes(doc):
     return changed
 
 
+def _join_level(level):
+    """«Все из», «Первое из» и «По количеству» — одна нода «Ожидание входов» с режимом; входов столько, сколько подключено, плюс один.
+    Выходы «Первым вход N» у «Любого» слились в «Дальше» (номер входа — в выходе «Вход»)."""
+    changed = False
+    wires = level.get("wires") or []
+    for node in [n for n in level.get("nodes") or [] if isinstance(n, dict) and n.get("type") in ("all", "race", "some")]:
+        data = node.get("data") or {}
+        mode = {"all": "all", "race": "any", "some": "count"}[node["type"]]
+        new = {"mode": mode}
+        if mode == "count" and data.get("need") not in (None, ""):
+            new["need"] = data["need"]
+        used = [int(str(w.get("in"))[1:]) for w in wires if isinstance(w, dict) and str(w.get("to")) == str(node["id"])
+                and str(w.get("in")).startswith("i") and str(w.get("in"))[1:].isdigit()]
+        new["count"] = min(12, max(used or [0]) + 1)
+        node["type"], node["data"] = "join", new
+        for wire in wires:
+            if isinstance(wire, dict) and str(wire.get("from")) == str(node["id"]) and str(wire.get("out")).startswith("o"):
+                wire["out"] = "next"
+        changed = True
+    return changed
+
+
+def join_nodes(doc):
+    """Ожидание входов одной нодой. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _join_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _join_level(group) or changed
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

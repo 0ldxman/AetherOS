@@ -215,8 +215,8 @@ def _part(part, groups, prefix, add, slug):
             _, action = N.action_of(kind, data)
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
-        if kind.name in ("all", "race", "some"):
-            for sock in N.sockets(kind, data, "in"):
+        if kind.name == "join":                              # последний вход — запасной (растёт сам), его не проверяем
+            for sock in N.sockets(kind, data, "in")[:-1]:
                 if not any(dst == node_id and inp == sock for targets in doc.flow.values() for dst, inp in targets):
                     add(key, f"вход {sock[1:]} не подключён", WARNING)
 

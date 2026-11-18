@@ -229,7 +229,7 @@ class FlowNodesTests(TestCase):
         self.assertNotIn("over", N.sockets(N.KINDS["turns"], {}, "out"))
 
     def test_some_of_inputs(self):
-        graph = make([node("m", "manual"), node("s", "some", count=3, need=2), node("a", "do:world_count", name="c")],
+        graph = make([node("m", "manual"), node("s", "join", mode="count", count=4, need=2), node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "s", "i1"), wire("m", "fire", "s", "i3"), wire("s", "next", "a")], slug="so")
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(values.get(values.COUNT, "world", 0, "c"), 1)
@@ -250,7 +250,7 @@ class FamilyTests(TestCase):
     def test_route_and_wait_families(self):
         kinds = {k["name"]: k for k in N.catalog()["kinds"]}
         self.assertEqual([n for n, k in kinds.items() if k["family"] == "Направить"], ["check", "random", "turns"])
-        self.assertEqual([n for n, k in kinds.items() if k["family"] == "Ожидание входов"], ["all", "race", "some"])
+        self.assertEqual(kinds["join"]["family"], "")
         self.assertEqual(kinds["each"]["family"], "")
 
 
@@ -263,3 +263,17 @@ class WaitUpgradeTests(TestCase):
         self.assertEqual([(w["out"]) for w in doc["wires"]], ["next"])
         self.assertEqual(doc["nodes"][2]["data"], {"mode": "until", "at": "21:00"})
         self.assertFalse(upgrade.wait_nodes(doc))
+
+
+class JoinTests(TestCase):
+    def test_old_joins_become_one_node(self):
+        doc = {"nodes": [node("a", "all", count=3), node("r", "race", count=2), node("s", "some", count=3, need=2), node("x", "act:tag")],
+               "wires": [wire("m", "fire", "a", "i1"), wire("m", "fire", "a", "i2"), wire("m", "fire", "r", "i1"), wire("r", "o2", "x"),
+                         wire("m", "fire", "s", "i1"), wire("m", "fire", "s", "i3")]}
+        self.assertTrue(upgrade.join_nodes(doc))
+        kinds = {n["id"]: (n["type"], n["data"]) for n in doc["nodes"]}
+        self.assertEqual(kinds["a"], ("join", {"mode": "all", "count": 3}))
+        self.assertEqual(kinds["r"], ("join", {"mode": "any", "count": 2}))
+        self.assertEqual(kinds["s"], ("join", {"mode": "count", "need": 2, "count": 4}))
+        self.assertIn(("r", "next", "x"), [(w["from"], w["out"], w["to"]) for w in doc["wires"]])
+        self.assertFalse(upgrade.join_nodes(doc))

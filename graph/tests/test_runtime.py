@@ -214,19 +214,19 @@ class WaitTests(TestCase):
         self.assertEqual(counter("d"), 0)
 
     def test_race_cancels_other_branch(self):
-        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("r", "race", count=2),
-                      node("x", "do:world_count", name="c"), node("y", "do:world_count", name="d")],
-                     [wire("m", "fire", "f1"), wire("m", "fire", "f2"), wire("f1", "set", "r", "i1"), wire("f2", "set", "r", "i2"),
-                      wire("r", "o1", "x"), wire("r", "o2", "y")])
+        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("r", "join", mode="any", count=3),
+                      node("x", "do:world_count", name="c")],
+                     [wire("m", "fire", "f1"), wire("m", "fire", "f2"), wire("f1", "set", "r", "i1"), wire("f2", "set", "r", "i2"), wire("r", "next", "x")])
         runtime.start_manual(graph, "m", self.ivan)
         self.assertEqual(Wait.objects.count(), 2)
         store.set_tag("player", self.ivan.pk, "b")
-        self.assertEqual((counter("c"), counter("d")), (0, 1))
+        self.assertEqual(counter("c"), 1)
+        self.assertEqual(Run.objects.get().state["vals"]["r"], {"input": 2})
         self.assertFalse(Wait.objects.exists())
         self.assertEqual(Run.objects.get().status, Run.Status.DONE)
 
     def test_all_joins_in_any_order(self):
-        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("j", "all", count=2),
+        graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("j", "join", mode="all", count=3),
                       node("x", "do:world_count", name="c")],
                      [wire("m", "fire", "f1"), wire("m", "fire", "f2"), wire("f1", "set", "j", "i1"), wire("f2", "set", "j", "i2"), wire("j", "next", "x")])
         runtime.start_manual(graph, "m", self.ivan)

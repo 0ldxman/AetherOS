@@ -17,7 +17,7 @@
   import FrameNode from "./FrameNode.svelte";
   import GraphNode from "./GraphNode.svelte";
   import NodePanel from "./NodePanel.svelte";
-  import { BOXES, HOLDERS, OFFER_USED, TYPES, compatible, offerIface, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, typeByWires, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
+  import { BOXES, HOLDERS, OFFER_USED, fitJoin, TYPES, compatible, offerIface, takesEvent, resolveType, sockType, socketFields, typeColor, defaults, freeId, ifaceOfLevel, insOf, isRow, outsOf, rowName, rowsOf, summaryOf, tidyRows, typeByWires, type Catalog, type Doc, type GNode, type GWire, type Group, type Iface, type Kind, type Level } from "./kinds";
 
   let { id, embedded = false }: { id: number; embedded?: boolean } = $props();
   type Detail = Schemas["GrDetail"];
@@ -58,6 +58,7 @@
   const keyOf = (nodeId: string) => (gid ? `${gid}::${nodeId}` : nodeId);
   function setLevel(next: Level) {
     if (next.nodes.some((n) => kindOf(n.type)?.grow)) next = { ...next, nodes: next.nodes.map((n) => tidyRows(kindOf(n.type), n, next.wires)) };
+    if (next.nodes.some((n) => n.type === "join")) next = { ...next, nodes: next.nodes.map((n) => (n.type === "join" ? fitJoin(n, next.wires) : n)) };
     next = typeByWires(next, kindOf, (n, out) => { const k = kindOf(n.type); return k ? sockType(k, n.data, "out", out, ifaceOf(n)) : ""; });
     if (gid) doc = { ...doc, groups: { ...doc.groups, [gid]: { ...(doc.groups?.[gid] as Group), nodes: next.nodes, wires: next.wires } } };
     else doc = { ...doc, nodes: next.nodes, wires: next.wires };

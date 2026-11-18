@@ -514,7 +514,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name in ("branch_in", "each", "watch", "wait_cond"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
+    if kind.name in ("branch_in", "each", "watch", "wait_cond", "join"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -795,6 +795,31 @@ def _noun_wait(run, doc, node_id, kind):
     if data.get("timeout") not in (None, "", 0, "0") and N.TIMEOUT in doc.wired(node_id):
         Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout")))
     return []
+
+
+def _join(run, doc, node_id, data, sock):
+    """«Ожидание входов»: Все — когда пришли все подключённые входы; Любой — первый (остальные ожидания снимаются); По количеству — N входов."""
+    if not (sock.startswith("i") and sock[1:].isdigit()):
+        return []
+    wired = {inp for (dst, inp) in doc.into if dst == node_id and inp.startswith("i") and inp[1:].isdigit()}
+    total = max(1, len(wired))
+    mode = data.get("mode") or "all"
+    need = 1 if mode == "any" else min(_count(data, "need", 2), total) if mode == "count" else total
+    state = run.state or {}
+    done = list(state.get("races") or [])
+    if node_id in done:
+        return []                                        # «Любой» и «По количеству» срабатывают один раз за поток
+    joins = dict(state.get("joins") or {})
+    got = set(joins.get(node_id) or []) | {sock}
+    if len(got) < need:
+        run.state = {**state, "joins": {**joins, node_id: sorted(got)}}
+        return []
+    joins.pop(node_id, None)
+    vals = {**(state.get("vals") or {}), node_id: {"input": int(sock[1:])}}
+    run.state = {**state, "joins": joins, "vals": vals, **({"races": done + [node_id]} if mode != "all" else {})}
+    if mode != "all":
+        Wait.objects.filter(run=run, node__in=doc.reaching(node_id)).delete()
+    return ["next"]
 
 
 def _met(run, node_id):
@@ -1271,37 +1296,8 @@ def _execute(run, doc, node_id, sock):
             mark.value = 1
             mark.save(update_fields=["value"])
         return ["pass"]
-    if name == "all":
-        joins = dict((run.state or {}).get("joins") or {})
-        got = set(joins.get(node_id) or []) | {sock}
-        if len(got) >= _count(data, "count"):
-            joins.pop(node_id, None)
-            run.state = {**(run.state or {}), "joins": joins}
-            return ["next"]
-        joins[node_id] = sorted(got)
-        run.state = {**(run.state or {}), "joins": joins}
-        return []
-    if name == "some":                               # любые need входов из count
-        done = list((run.state or {}).get("races") or [])
-        if node_id in done:
-            return []
-        joins = dict((run.state or {}).get("joins") or {})
-        got = set(joins.get(node_id) or []) | {sock}
-        if len(got) < min(_count(data, "need"), _count(data, "count", 3)):
-            joins[node_id] = sorted(got)
-            run.state = {**(run.state or {}), "joins": joins}
-            return []
-        joins.pop(node_id, None)
-        run.state = {**(run.state or {}), "joins": joins, "races": done + [node_id]}
-        Wait.objects.filter(run=run, node__in=doc.reaching(node_id)).delete()
-        return ["next"]
-    if name == "race":
-        done = list((run.state or {}).get("races") or [])
-        if node_id in done or not sock.startswith("i"):
-            return []
-        run.state = {**(run.state or {}), "races": done + [node_id]}
-        Wait.objects.filter(run=run, node__in=doc.reaching(node_id)).delete()
-        return [f"o{sock[1:]}"]
+    if name == "join":
+        return _join(run, doc, node_id, data, sock)
     if name == "end":
         _finish(run, data.get("outcome") or "passed")
         return []

@@ -20,8 +20,9 @@ class SocketTests(SimpleTestCase):
     def test_many_and_tail(self):
         turns = nodes.KINDS["turns"]
         self.assertEqual(nodes.sockets(turns, {"count": 3, "cycle": "stop"}, "out"), ["b1", "b2", "b3", "over"])
-        race = nodes.KINDS["race"]
-        self.assertEqual(nodes.sockets(race, {"count": 3}, "in"), ["i1", "i2", "i3"])
+        join = nodes.KINDS["join"]
+        self.assertEqual(nodes.sockets(join, {"count": 3}, "in"), ["i1", "i2", "i3"])
+        self.assertEqual(nodes.sockets(join, {"count": 1}, "in"), ["i1"])
         self.assertIn("timeout", nodes.sockets(nodes.KINDS["on:placement.opened"], {}, "out"))
         self.assertNotIn("timeout", nodes.sockets(nodes.KINDS["manual"], {}, "out"))
 
