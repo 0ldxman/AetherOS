@@ -275,6 +275,7 @@ function waitTitle(data: Record<string, unknown>, usedIn: string[]): string {
 
 export function titleOf(kind: Kind, data: Record<string, unknown>, usedIn: string[] = []): string {
   if (kind.name === "wait") return waitTitle(data, usedIn);
+  if (kind.name === "branching" && String(data.name ?? "").trim() && !usedIn.includes("f:name")) return `Ветвление: ${String(data.name).trim()}`;
   const named = Object.entries(kind.titled ?? {}).find(([name]) => isSet(data, usedIn, name));
   if (named) return named[1];                                    // «Размещение: Создать» с объектом — «Размещение: Добавить»
   if (!kind.title) return kind.label;
