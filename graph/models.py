@@ -148,7 +148,7 @@ class OfferTry(models.Model):
 
 
 class Mark(models.Model):
-    """Счётчик ноды: «по очереди», «первые в мире» (user пусто), «однажды» (на игрока), последний запуск по времени."""
+    """Счётчик ноды: «Направить: По очереди» (общий на мир, user пусто) и последний запуск по времени («Время», «Расписание»)."""
 
     graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="marks")
     node = models.CharField(max_length=32)

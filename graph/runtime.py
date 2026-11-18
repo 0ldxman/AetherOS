@@ -1292,22 +1292,6 @@ def _execute(run, doc, node_id, sock):
             mark.value += 1
             mark.save(update_fields=["value"])
         return [f"b{number}"]
-    if name == "first":
-        with transaction.atomic():
-            mark = _mark(run, node_id)
-            if mark.value >= _count(data, "count", 1):
-                return ["late"]
-            mark.value += 1
-            mark.save(update_fields=["value"])
-        return ["pass"]
-    if name == "once":
-        with transaction.atomic():
-            mark = _mark(run, node_id, run.user if data.get("per") == "player" else None)
-            if mark.value:
-                return ["again"]
-            mark.value = 1
-            mark.save(update_fields=["value"])
-        return ["pass"]
     if name == "join":
         return _join(run, doc, node_id, data, sock)
     if name == "crew":
