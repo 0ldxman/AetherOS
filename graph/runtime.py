@@ -24,7 +24,7 @@ from graph.models import Graph, Hit, Mark, Run, Start, Wait
 
 log = logging.getLogger("graph")
 
-LIST_LIMIT = 200                             # «Ожидание веток» проходит не больше стольких элементов
+LIST_LIMIT = 200                             # списки и «Список: …» проходят не больше стольких элементов
 DEPTH = 8          # сценарий → действие → событие → сценарий…
 STEPS = 300        # нод за один проход: защита от цикла без ожидания
 TICK = 15
@@ -139,7 +139,7 @@ def _expand(part, groups, prefix, inline, depth, seen, nodes, wires, deps):
                 _expand(inner, groups, full + "/", inline, depth + 1, seen, nodes, wires, deps)
                 boxes[nid] = (full, inner)
             continue
-        if kind in ("each", "watch", "branching"):
+        if kind == "branching":
             inner = groups.get(str(data.get("group") or ""))
             nodes.append({**node, "id": full, "_inline": inline or bool(node.get("_inline"))})
             if inner is not None and depth < DEPTH_BOXES:
@@ -228,7 +228,6 @@ def rebuild_starts(graph):
         Start.objects.filter(graph=graph).delete()
         Start.objects.bulk_create(rows)
         offers.declare(graph, doc)
-    open_watches(graph)
     return rows
 
 
@@ -524,7 +523,7 @@ def value_of(run, doc, node_id, out, depth=0):
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
     if kind.name == "branch_head":                    # кому сейчас принадлежит ветка
         return run.crew.name if run.crew_id else run.owner.get_username() if run.owner_id else ""
-    if kind.name in ("branch_in", "each", "watch", "wait_cond", "join", "crew"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
+    if kind.name in ("wait_cond", "join", "crew"):                     # значения, которые нода записала при выполнении
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -780,8 +779,7 @@ def _inferred(doc, node_id, kind, data):
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
-    item = (run.state or {}).get("item") or {}
-    own = data.get("own") in (True, "player", "true") or (data.get("own") == "item" and bool(item.get("user")))
+    own = data.get("own") in (True, "player", "true")
     if data.get("past") and (run.user is not None or not own):
         from engine.models import Event
 
@@ -797,8 +795,6 @@ def _noun_wait(run, doc, node_id, kind):
     for name, (mode, by) in kind.infers.items():                                 # и то, что задал тип провода (владелец и его вещь)
         if name in fed:
             fed.update({key: data.get(key) for key in (mode, *(f for _, f in by.values()))})
-    if data.get("own") == "item" and item.get("account") and not item.get("user"):
-        fed["@account"] = item["account"]                                         # элемент-учётка: только события на ней
     for out in outs:
         Wait.objects.create(run=run, user=run.user, node=node_id, out=out, kind=Wait.Kind.EVENT, event=N.event_of(kind, out),
                             anyone=not own or bool(run.owner_id or run.crew_id or (run.state or {}).get("vacancy")), data=fed)
@@ -808,7 +804,7 @@ def _noun_wait(run, doc, node_id, kind):
 
 
 def _join(run, doc, node_id, data, sock):
-    """«Ожидание входов»: Все — когда пришли все подключённые входы; Любой — первый (остальные ожидания снимаются); По количеству — N входов."""
+    """«Слияние»: Все — когда пришли все подключённые входы; Любой — первый (остальные ожидания снимаются); По количеству — N входов."""
     if not (sock.startswith("i") and sock[1:].isdigit()):
         return []
     wired = {inp for (dst, inp) in doc.into if dst == node_id and inp.startswith("i") and inp[1:].isdigit()}
@@ -1348,95 +1344,15 @@ def _finish(run, outcome=""):
     run.status, run.outcome, run.ended_at = Run.Status.DONE, outcome, timezone.now()
     Wait.objects.filter(run=run).delete()
     if run.pk:
-        _cancel_children(run)
+        _release_children(run)
 
 
-def _cancel_children(run):
-    """Ветки «Ожидание веток» и «Наблюдения», которые ещё идут, снимаются вместе с их ожиданиями (и их ветки — тоже).
-    Ветки «Ветвления» живут сами: они отцепляются от родителя, когда он заканчивается."""
-    for child in Run.objects.filter(parent=run, status=Run.Status.RUNNING):
-        if (child.state or {}).get("fork"):
-            Run.objects.filter(pk=child.pk).update(parent=None)
-            continue
-        _finish(child, "cancelled")
-        child.save(update_fields=["status", "outcome", "ended_at"])
+def _release_children(run):
+    """Ветки «Ветвления» живут сами: когда родитель закончился, они отцепляются от него."""
+    Run.objects.filter(parent=run, status=Run.Status.RUNNING).update(parent=None)
 
 
-# ---------- «Ожидание веток»: ветка на элемент, «Конец ветки» возвращает её ----------
-
-_live = {}                                   # потоки, которые сейчас запускают ветки: вернувшиеся сразу пишут в них, а не в базу
-
-
-def _item_of(value):
-    """Кто такой элемент: {"user": pk, "account": логин@хост} — игрок, учётка или сессия (игрок/логин@хост); иначе пусто."""
-    from django.contrib.auth import get_user_model
-
-    from machines.world import edits
-
-    text = str(value or "").strip()
-    head, slash, rest = text.partition("/")
-    user_name, account = (head, rest) if slash else ("" if "@" in text else text, text if "@" in text else "")
-    found = {}
-    if user_name:
-        user = get_user_model().objects.filter(username__iexact=user_name).first()
-        if user is not None:
-            found["user"] = user.pk
-    if account and edits.account(account) is not None:
-        found["account"] = account
-    return found
-
-
-def _branches_met(state, data):
-    done, total = len(state.get("finished") or []), state.get("total") or 0
-    mode = data.get("mode") or "all"
-    if mode == "first":
-        return done >= 1
-    if mode == "count":
-        return done >= min(_count(data, "need", 2) if str(data.get("need") or "").isdigit() else 2, total)
-    return done >= total
-
-
-def _each(run, doc, node_id, queue):
-    """Запустить ветки «Ожидание веток»: по потоку на элемент, со своим элементом (игрок — инициатор, учётка — место)."""
-    from django.contrib.auth import get_user_model
-
-    data = resolved(run, doc, node_id)
-    items = _as_list(input_of(run, doc, node_id, "list"))[:LIST_LIMIT]
-    start_at = next((nid for nid, node in doc.nodes.items() if nid.startswith(node_id + "/") and node.get("type") == "branch_in"
-                     and nid.count("/") == node_id.count("/") + 1), None)
-    state = {"total": len(items), "finished": []}
-    vals = {**((run.state or {}).get("vals") or {}), node_id: {"finished": [], "first": ""}}
-    run.state = {**(run.state or {}), "vals": vals, "each": {**((run.state or {}).get("each") or {}), node_id: state}}
-    if not items or start_at is None:
-        if start_at is None and items:
-            _log(run.graph, "«Ожидание веток»: внутри нет «Начала ветки»", run.user)
-        queue.extend(doc.next(node_id, "done"))
-        return
-    hold = Wait.objects.create(run=run, user=run.user, node=node_id, out="done", kind=Wait.Kind.TIME, until=None)   # ждёт ветки
-    run.save(update_fields=["state", "ctx", "user"])
-    _live[run.pk] = run
-    try:
-        for index, value in enumerate(items, 1):
-            if _branches_met(run.state["each"][node_id], data):
-                break                                            # «Любой»/«По количеству» уже набрали — остальные не запускаем
-            item = _item_of(value)
-            user = get_user_model().objects.filter(pk=item["user"]).first() if item.get("user") else run.user
-            ctx = dict(run.ctx or {})
-            if item.get("account"):
-                login, _, host = item["account"].partition("@")
-                ctx.update(host=host, login=login)
-            child = Run.objects.create(graph=run.graph, user=user, node=start_at, ctx=ctx, parent=run,
-                                       state={"vals": {**vals, start_at: {"item": value, "index": index}}, "item": item,
-                                              "each": node_id, "value": value})
-            child.graph = run.graph
-            _hit(child, start_at)
-            advance(child, doc.next(start_at, "next"))
-    finally:
-        _live.pop(run.pk, None)
-    if _branches_met(run.state["each"][node_id], data):
-        hold.delete()
-        _cancel_children(run)
-        queue.extend(doc.next(node_id, "done"))
+# ---------- «Ветвление»: свободная ветка, занятая ветка, владелец ----------
 
 
 def _head_of(doc, node_id):
@@ -1601,151 +1517,6 @@ def _claim(run, data):
     return ["set" if took else "already"]
 
 
-def _listeners(doc, node_id):
-    """Триггеры «Наблюдения»: внутри его группы, без входящего провода потока, с подключёнными выходами-событиями."""
-    depth = node_id.count("/") + 1
-    found = []
-    for nid in doc.nodes:
-        if not nid.startswith(node_id + "/") or nid.count("/") != depth or nid in doc.fed:
-            continue
-        kind = doc.kind(nid)
-        if kind is None or kind.group not in N.NOUNS or kind.start_only:
-            continue
-        found += [(nid, out, N.event_of(kind, out)) for out in doc.wired(nid) if N.event_of(kind, out)]
-    return found
-
-
-def _watch_open(run, doc, node_id):
-    """Открыть наблюдение: поток стоит на ноде, внутренние триггеры ловят (ожидания-«@watch» не снимаются при срабатывании)."""
-    if Wait.objects.filter(run=run, node=node_id, out="done").exists():
-        return
-    vals = {**((run.state or {}).get("vals") or {}), node_id: {"count": 0, "initiators": []}}
-    run.state = {**(run.state or {}), "vals": vals}
-    Wait.objects.create(run=run, user=run.user, node=node_id, out="done", kind=Wait.Kind.TIME, until=None)       # держит поток
-    for nid, out, event in _listeners(doc, node_id):
-        Wait.objects.create(run=run, user=run.user, node=nid, out=out, kind=Wait.Kind.EVENT, event=event, anyone=True,
-                            data={"@watch": node_id})
-    if not _listeners(doc, node_id):
-        _log(run.graph, "«Наблюдение»: внутри нет триггеров — ловить нечего", run.user)
-
-
-def open_watches(graph):
-    """Наблюдения без провода во «Когда» идут с включения сценария: держит их свой поток (без инициатора)."""
-    if not graph.active:
-        return
-    doc = doc_of(graph)
-    fed_in = {dst for targets in doc.flow.values() for dst, inp in targets if inp == "in"}
-    for node_id, node in doc.nodes.items():
-        if node.get("type") != "watch" or node_id in fed_in or node.get("_inline"):
-            continue
-        if Run.objects.filter(graph=graph, status=Run.Status.RUNNING, waits__node=node_id, waits__out="done").exists():
-            continue
-        run = Run.objects.create(graph=graph, user=None, node=node_id, ctx={})
-        run.graph = graph
-        _watch_open(run, doc, node_id)
-        run.save(update_fields=["state"])
-
-
-def _watch_fire(wait, event):
-    """Событие для «Наблюдения»: если «Пока» верно — новая ветка с инициатором события от этого триггера."""
-    with transaction.atomic():
-        holder = Run.objects.select_for_update().select_related("graph").filter(pk=wait.run_id).first()
-        if holder is None or holder.status != Run.Status.RUNNING:
-            return None
-        node_id = (wait.data or {}).get("@watch")
-        doc = doc_of(holder.graph)
-        condition = resolved(holder, doc, node_id).get("while")
-        if condition not in (None, "") and not _holds(condition, Run(graph=holder.graph, user=event.user, ctx=_ctx_of(event), state={})):
-            return None
-        vals = dict((holder.state or {}).get("vals") or {})
-        mine = dict(vals.get(node_id) or {"count": 0, "initiators": []})
-        name = event.user.get_username() if event.user is not None else ""
-        mine["count"] = int(mine.get("count") or 0) + 1
-        if name and name not in (mine.get("initiators") or []):
-            mine["initiators"] = [*(mine.get("initiators") or []), name]
-        vals[node_id] = mine
-        holder.state = {**(holder.state or {}), "vals": vals}
-        holder.save(update_fields=["state"])
-        child = Run.objects.create(graph=holder.graph, user=event.user, node=wait.node, ctx=_ctx_of(event), parent=holder,
-                                   state={"vals": vals, "watch": node_id})
-    child.graph = holder.graph
-    capture(child, wait.node, event)
-    _hit(child, wait.node)
-    return advance(child, doc.next(wait.node, wait.out))
-
-
-def _close_watch(holder, doc, node_id, keep=None):
-    """Снять наблюдение у потока holder: ловцы и держатель убираются, ветки снимаются (кроме keep) или доживают."""
-    inner = [nid for nid in doc.nodes if nid.startswith(node_id + "/")]
-    Wait.objects.filter(run=holder).filter(Q(node=node_id) | Q(node__in=inner, data__has_key="@watch")).delete()
-    branches = Run.objects.filter(parent=holder, status=Run.Status.RUNNING, state__watch=node_id)
-    branches.filter(pk=keep).update(parent=None)                     # ветка, которая сняла, идёт дальше сама по себе
-    if (resolved(holder, doc, node_id).get("branches") or "cancel") == "cancel":
-        for child in branches.exclude(pk=keep):
-            _finish(child, "cancelled")
-            child.save(update_fields=["status", "outcome", "ended_at"])
-    else:
-        branches.update(parent=None)                                 # доживают: дальше их не снимает и конец истории
-
-
-def _watch_stop(run, doc, node_id, queue):
-    """Вход «Снять наблюдение»: у всех потоков этого сценария, которые наблюдают на этой ноде; дальше — «Готово»."""
-    holders = Run.objects.filter(graph=run.graph, status=Run.Status.RUNNING, waits__node=node_id, waits__out="done").distinct()
-    for holder in list(holders.select_related("graph")):
-        if holder.pk == run.pk:
-            _close_watch(run, doc, node_id)
-            queue.extend(doc.next(node_id, "done"))
-            continue
-        _close_watch(holder, doc, node_id)
-        advance(holder, doc.next(node_id, "done"))
-
-
-def _watch_stop_inside(child, doc):
-    """Нода «Снять наблюдение» в ветке: снять её наблюдение; сама ветка идёт дальше."""
-    node_id = (child.state or {}).get("watch")
-    holder = Run.objects.select_related("graph").filter(pk=child.parent_id, status=Run.Status.RUNNING).first() if node_id else None
-    if holder is None:
-        _log(child.graph, "«Снять наблюдение» вне наблюдения", child.user)
-        return
-    _close_watch(holder, doc, node_id, keep=child.pk)
-    child.parent_id = None
-    advance(holder, doc.next(node_id, "done"))
-
-
-def _branch_done(child):
-    """Ветка дошла до «Конца ветки»: записать её в «Успели» у родителя; набралось нужное — родитель идёт в «Готово»."""
-    state = child.state or {}
-    node_id = state.get("each")
-    if child.parent_id is None or not node_id:
-        return
-    parent = _live.get(child.parent_id)
-    live = parent is not None
-    with transaction.atomic():
-        if not live:
-            parent = Run.objects.select_for_update().select_related("graph").filter(pk=child.parent_id).first()
-            if parent is None or parent.status != Run.Status.RUNNING:
-                return
-        each = dict(((parent.state or {}).get("each") or {}).get(node_id) or {})
-        if each.get("closed"):
-            return
-        each["finished"] = [*(each.get("finished") or []), state.get("value")]
-        vals = dict((parent.state or {}).get("vals") or {})
-        vals[node_id] = {"finished": list(each["finished"]), "first": each["finished"][0]}
-        doc = doc_of(parent.graph)
-        met = _branches_met(each, resolved(parent, doc, node_id))
-        if met:
-            each["closed"] = True
-        parent.state = {**(parent.state or {}), "vals": vals, "each": {**((parent.state or {}).get("each") or {}), node_id: each}}
-        if live:
-            return                                   # ветки ещё запускаются: «Готово» решит сам запуск
-        parent.save(update_fields=["state"])
-        if not met:
-            return
-        Wait.objects.filter(run=parent, node=node_id).delete()
-    _cancel_children(parent)
-    advance(parent, doc.next(node_id, "done"))
-
-
 def advance(run, items):
     """Пройти от входов items [(нода, вход)] до ожиданий и концов."""
     doc = doc_of(run.graph)
@@ -1757,7 +1528,7 @@ def advance(run, items):
 
 
 def _drain(run, doc, queue, steps):
-    """Очередь нод до конца. «Ожидание веток» запускает ветки (по потоку на элемент) и ждёт их «Конца ветки»."""
+    """Очередь нод до конца. «Ветвление» рождает ветку и идёт дальше сразу; ожидания встают в Wait."""
     while queue and run.status == Run.Status.RUNNING:
         node_id, sock = queue.popleft()
         kind = doc.kind(node_id)
@@ -1773,26 +1544,12 @@ def _drain(run, doc, queue, steps):
             _finish(run, "aborted")
             break
         _hit(run, node_id)
-        if kind.name == "each":
-            _each(run, doc, node_id, queue)
-            continue
         if kind.name == "branching":
             _branching(run, doc, node_id, queue)
             continue
         if kind.name == "branch_out":
-            _branch_done(run)
-            if (run.state or {}).get("fork") or (run.state or {}).get("each"):
+            if (run.state or {}).get("fork"):
                 _finish(run)                                 # конец ветки закрывает её целиком, и недождавшиеся альтернативные ожидания тоже
-            continue
-        if kind.name == "watch":
-            if sock == "stop":
-                _watch_stop(run, doc, node_id, queue)
-            else:
-                _watch_open(run, doc, node_id)
-            continue
-        if kind.name == "watch_stop":
-            _watch_stop_inside(run, doc)
-            queue.extend(doc.next(node_id, "next"))
             continue
         try:
             outs = _execute(run, doc, node_id, sock)
@@ -1911,15 +1668,8 @@ def dispatch(event):
                 from graph import offers
 
                 data = offers.match_data(wait.run.graph, doc, wait.node, data)
-            account = (wait.data or {}).get("@account")
-            if account and f"{event.login}@{event.host}".lower() != str(account).lower():
-                continue
             if (wait.run.state or {}).get("vacancy") and not _vacancy_accepts(wait, event):
                 continue                                 # у игрока уже набралось веток
-            if (wait.data or {}).get("@watch"):
-                if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
-                    touched += bool(_watch_fire(wait, event))
-                continue
             if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
         if event.user is not None:

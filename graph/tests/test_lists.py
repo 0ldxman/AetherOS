@@ -1,4 +1,4 @@
-"""Списки: тип «список из X», ноды «Список: …» и «Для каждого»."""
+"""Списки: тип «список из X», ноды «Список: …»."""
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
@@ -76,21 +76,3 @@ class ListNodeTests(TestCase):
         wires = [f("t", "value", "c", "list"), f("l", "value", "tp", "s1")]
         self.assertEqual(self.get(nodes_, wires, "c", "count"), 1)
         self.assertEqual(self.get(nodes_, wires, "tp"), "x, y")
-
-
-class ForEachTests(TestCase):
-    def setUp(self):
-        self.ivan = get_user_model().objects.create_user("ivan")
-
-    def test_each_branch_sees_its_element_then_done(self):
-        graph = make([node("m", "manual"), items("text", "red", "green", "blue"), node("e", "each", group="g1"),
-                      node("d", "do:world_count", name="done")],
-                     [wire("m", "fire", "e"), f("l", "value", "e", "list"), wire("e", "done", "d")])
-        graph.doc["groups"] = {"g1": {"title": "Для каждого", "nodes": [node("s", "branch_in"), node("t", "act:tag", variant="on", owner="world"),
-                                                                         node("o", "branch_out")],
-                                      "wires": [wire("s", "next", "t"), f("s", "item", "t", "name"), wire("t", "next", "o")]}}
-        graph.save()
-        self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
-        runtime.start_manual(graph, "m", self.ivan)
-        self.assertTrue(all(values.on("world", 0, name) for name in ("red", "green", "blue")))
-        self.assertEqual(counter("done"), 1)

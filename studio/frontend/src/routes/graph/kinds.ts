@@ -12,8 +12,8 @@ export type Doc = Level & { groups?: Record<string, Group> };
 export type Sock = { name: string; label: string; type?: string };
 export type Iface = { inputs: Sock[]; outputs: Sock[] };
 export const BOXES = ["group", "scenario"];
-const IN_LABELS: Record<string, string> = { stop: "Снять наблюдение" };      // входы потока, кроме «Когда»
-export const HOLDERS = ["group", "each", "watch", "branching"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
+const IN_LABELS: Record<string, string> = {};      // подписи входов потока, кроме «Когда» (у каждого вида своё имя входа)
+export const HOLDERS = ["group", "branching"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
 
 // триггеры (руками игрока) и события (время, сигнал, сценарий, автор): старт без провода, ожидание со входом
 export const isTrigger = (kind: { group: string }) => kind.group === "noun" || kind.group === "happen";
@@ -161,7 +161,7 @@ export function sockType(kind: Kind, data: Record<string, unknown>, side: "in" |
 }
 
 // тип элементов по проводам (kind.types_from): провода одного типа — этот тип, иначе текст; без проводов — текст.
-// Повторяется, пока меняется: «Список» → «Список: Содержимое» → «Ожидание веток» получают тип по цепочке.
+// Повторяется, пока меняется: «Список» → «Список: Содержимое» → «Список: Действие» получают тип по цепочке.
 export function typeByWires(level: Level, kindOf: (type: string) => Kind | undefined, typeOut: (node: GNode, out: string) => string): Level {
   let nodes = level.nodes;
   for (let pass = 0; pass < 6; pass++) {
@@ -365,7 +365,7 @@ export function freeId(doc: Level): string {
   return `n${n}`;
 }
 
-// «Ожидание входов»: входов на один больше, чем подключено (подали первый — появился второй…); пустых лишних нет
+// «Слияние»: входов на один больше, чем подключено (подали первый — появился второй…); пустых лишних нет
 export function fitJoin(node: GNode, wires: GWire[]): GNode {
   const used = wires.filter((w) => w.to === node.id && /^i\d+$/.test(w.in)).map((w) => Number(w.in.slice(1)));
   const count = Math.min(12, Math.max(1, ...used.map((n) => n + 1)));

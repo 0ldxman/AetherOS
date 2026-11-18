@@ -11,7 +11,7 @@
     id: string;
     data: { node: GNode; kind: Kind; waiting: boolean; summary: string; errors: number; warnings: number; stat: Stat | null; used: string[];
             usedIn: string[]; iface: Iface | null; box: number; help: Record<string, string>; fedFrom: Record<string, string>; fedTypes: Record<string, string>;
-            picks: Record<string, Option[]>; editable: boolean; onfield: (name: string, value: unknown) => void; family?: { value: string; label: string }[]; watching?: boolean };
+            picks: Record<string, Option[]>; editable: boolean; onfield: (name: string, value: unknown) => void; family?: { value: string; label: string }[] };
     selected?: boolean;
   } = $props();
 
@@ -89,7 +89,6 @@
     queueMicrotask(() => update(id));
   });
   const role = $derived(data.waiting ? { text: "ждёт", tip: "Есть провод в «Ждать с»: ход ждёт событие здесь" }
-                        : data.watching ? { text: "ловит", tip: "Внутри «Наблюдения»: каждое событие — новая ветка" }
                         : outs.some((o) => (o.type ?? "event") === "event" && data.used.includes(o.name)) || !data.used.length ? { text: "старт", tip: "Нет провода в «Ждать с»: событие запускает ход" }
                         : { text: "данные", tip: "Подключены только данные: нода ничего не ловит, а отдаёт вещь или значение" });
   const days = (value: number) => (value < 1 ? "<1 дн." : `${Math.floor(value)} дн.`);

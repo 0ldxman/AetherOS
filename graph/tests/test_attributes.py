@@ -251,7 +251,8 @@ class FamilyTests(TestCase):
         kinds = {k["name"]: k for k in N.catalog()["kinds"]}
         self.assertEqual([n for n, k in kinds.items() if k["family"] == "Направить"], ["check", "random", "turns"])
         self.assertEqual(kinds["join"]["family"], "")
-        self.assertEqual(kinds["each"]["family"], "")
+        self.assertNotIn("each", kinds)
+        self.assertNotIn("watch", kinds)
 
 
 class WaitUpgradeTests(TestCase):

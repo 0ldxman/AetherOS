@@ -53,7 +53,6 @@
   const gid = $derived(path.length ? path[path.length - 1].group : "");
   const level = $derived<Level>(gid ? doc.groups?.[gid] ?? { nodes: [], wires: [] } : doc);
   // внутри «Наблюдения»: триггеры без входа не старты, а ловцы
-  const watching = $derived(!!gid && [doc, ...Object.values(doc.groups ?? {})].some((l) => l.nodes.some((n) => n.type === "watch" && String(n.data.group ?? "") === gid)));
   const statPrefix = $derived(path.map((p) => p.node).join("/") + (path.length ? "/" : ""));
   const keyOf = (nodeId: string) => (gid ? `${gid}::${nodeId}` : nodeId);
   function setLevel(next: Level) {
@@ -237,16 +236,11 @@
         { id: "in", type: "group_in", x: 0, y: 0, data: { sockets: [{ name: "s1", label: "Вход" }] } },
         { id: "out", type: "group_out", x: 520, y: 0, data: { sockets: [{ name: "s1", label: "Выход" }] } }] } } };
     }
-    if (kind.name === "watch") {                     // ветки по событиям: триггеры кладутся внутрь
-      const group = freeGroup();
-      node.data = { ...node.data, group };
-      doc = { ...doc, groups: { ...doc.groups, [group]: { title: "Наблюдение", nodes: [], wires: [] } } };
-    }
-    if (kind.name === "each" || kind.name === "branching") {   // ветка: внутри «Начало ветки» → «Конец ветки»
+    if (kind.name === "branching") {   // ветка: внутри «Начало ветки» → «Конец ветки»
       const group = freeGroup();
       node.data = { ...node.data, group };
       doc = { ...doc, groups: { ...doc.groups, [group]: { title: kind.label, nodes: [
-        { id: "start", type: kind.name === "branching" ? "branch_head" : "branch_in", x: 0, y: 0, data: {} }, { id: "end", type: "branch_out", x: 520, y: 0, data: {} }],
+        { id: "start", type: "branch_head", x: 0, y: 0, data: {} }, { id: "end", type: "branch_out", x: 520, y: 0, data: {} }],
         wires: [{ id: "start.next-end.in", from: "start", out: "next", to: "end", in: "in" }] } } };
     }
     const wires = [...level.wires];
@@ -377,7 +371,7 @@
                                     oldest_days: Math.max(acc.oldest_days, v.oldest_days) }), { hits: 0, players: 0, waiting: 0, oldest_days: 0 }) : null;
         return [{
           id: n.id, type: "gnode", position: { x: n.x, y: n.y }, selected: n.id === chosenId || keep.has(n.id),
-          data: { node: n, kind, waiting: fedInto.has(n.id), iface: ifaceOf(n), picks, editable, watching,
+          data: { node: n, kind, waiting: fedInto.has(n.id), iface: ifaceOf(n), picks, editable,
                   onfield: (name: string, value: unknown) => (name === "@type" ? retype(n.id, String(value)) : patchField(n.id, name, value)),
                   family: kind.family && catalog ? catalog.kinds.filter((k) => k.family === kind.family).map((k) => ({ value: k.name, label: k.label.split(": ").pop() ?? k.label })) : [],
                   summary: n.type === "group" ? doc.groups?.[inner]?.title ?? "" : summaryOf(kind, n.data, picks),
