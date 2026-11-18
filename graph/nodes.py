@@ -556,12 +556,15 @@ for _kind, _label in (("net.request", "Сетевой ресурс: Попытк
 
 # ---------- ход ----------
 
-register(Kind("wait", "Ждать", FLOW, "{mode}",
-              (Field("mode", "Чего ждать", "select", "", False, (("delay", "время"), ("until", "до времени"), ("condition", "пока условие"))),
-               Field("minutes", "Минут", "number", "5"), Field("at", "До (игровое)", "datetime", "21:00 или 2031-05-14 21:00"),
-               Field("condition", "Условие", "condition"), Field("timeout", "Таймаут, мин", "number", "без таймаута"),
+WAIT_UNITS = ("seconds", "minutes", "hours", "days")            # «Ждать»: поля срока
+register(Kind("wait", "Ждать", FLOW, "",
+              (Field("mode", "Режим", "switch", "", False, (("delay", "Ждать"), ("until", "Ждать до"))),
+               Field("seconds", "Секунд", "number", "0"), Field("minutes", "Минут", "number", "0"),
+               Field("hours", "Часов", "number", "0"), Field("days", "Дней", "number", "0"),
+               Field("at", "Дата и время", "datetime", "2031-05-14 21:00 или 21:00"),
                Field("real", "Реальное время вместо игрового", "bool")),
-              (Sock("next", "Дальше"), Sock(TIMEOUT, "Таймаут"))))
+              (Sock("next", "Дальше"),),
+              when={**{name: ("mode", ("delay",)) for name in WAIT_UNITS}, "at": ("mode", ("until",))}))
 register(Kind("check", "Направить: Если", FLOW, "{condition}", (Field("condition", "Условие", "condition", "", True),),
               (Sock("yes", "Истина"), Sock("no", "Ложь"))))
 register(Kind("random", "Направить: Случайно", FLOW, "", (Field("branches", "Веса веток", "weights"),),
@@ -707,8 +710,41 @@ def active(kind, data, name):
     return True
 
 
+_WAIT_FORMS = {"days": ("день", "дня", "дней"), "hours": ("час", "часа", "часов"), "minutes": ("минуту", "минуты", "минут"),
+               "seconds": ("секунду", "секунды", "секунд")}
+
+
+def plural(count, forms):
+    """Русское окончание по числу: 1 минуту, 2 минуты, 5 минут (дробное — как «2»)."""
+    if count != int(count):
+        return forms[1]
+    whole = int(count)
+    if whole % 10 == 1 and whole % 100 != 11:
+        return forms[0]
+    return forms[1] if 2 <= whole % 10 <= 4 and not 12 <= whole % 100 <= 14 else forms[2]
+
+
+def wait_title(data, wired=()):
+    """«Ждать 5 минут», «Ждать 1 час 30 минут», «Ждать до 2031-01-01 12:30»; провод на поле — его в заголовок не берём."""
+    data = data or {}
+    if (data.get("mode") or "delay") == "until":
+        at = str(data.get("at") or "").strip()
+        return f"Ждать до {at}" if at and "at" not in wired else "Ждать до"
+    parts = []
+    for name in reversed(WAIT_UNITS):
+        try:
+            value = float(str(data.get(name) or 0).replace(",", "."))
+        except ValueError:
+            continue
+        if value > 0 and name not in wired:
+            parts.append(f"{value:g} {plural(value, _WAIT_FORMS[name])}")
+    return "Ждать " + " ".join(parts) if parts else "Ждать"
+
+
 def titled(kind, data):
     """Заголовок ноды с её данными: «Размещение: Удалить в корзину», «Размещение: Добавить»."""
+    if kind.name == "wait":
+        return wait_title(data)
     for name, label in kind.titled.items():
         if (data or {}).get(name) not in (None, ""):
             return label
@@ -1026,7 +1062,9 @@ HELP = {
     "on:time": "Один раз в игровую дату и время. Ход мировой — без инициатора; по игрокам — «Найти по условию» → «Ожидание веток».",
     "on:schedule": "По игровому времени: каждый день в ЧЧ:ММ, по дням недели или каждые N минут. Ход мировой — без инициатора.",
     "signal": "Сигнал от «Послать сигнал» с тем же именем: связывает сценарии без проводов.",
-    "wait": "Ждать время, до времени (ЧЧ:ММ) или пока условие не станет верным. Время игровое, если не отмечено «реальное».",
+    "wait": "Поток стоит и идёт дальше: «Ждать» — через сколько-то секунд, минут, часов и дней (поля складываются, у каждого может быть вход); "
+            "«Ждать до» — когда наступит дата и время (2031-05-14 21:00) или ближайшее ЧЧ:ММ. Время игровое, если не отмечено «реальное». "
+            "Ответ или таймаут — триггер и «Ждать» в «Ожидание входов: Любой».",
     "check": "Проверить условие сейчас (провод да/нет или выражение: ключи, tag:, count:, world: — у инициатора) и пойти в «Истина» или «Ложь». "
              "Несколько — цепочкой: «Ложь» в следующее «Если» (если — иначе если — иначе).",
     "random": "Случайная ветка; чем больше вес, тем чаще.",

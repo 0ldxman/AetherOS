@@ -200,6 +200,32 @@ def mail_to(doc):
     return changed
 
 
+def _wait_level(level):
+    """«Ждать» стал простым: режимы «Ждать» и «Ждать до». Режим «пока условие» и таймаут ушли: такая нода просто ждёт заданное время
+    (минуты остались), провода с её «Таймаута» снимаются."""
+    changed = False
+    for node in level.get("nodes") or []:
+        if not isinstance(node, dict) or node.get("type") != "wait":
+            continue
+        data = node.get("data") or {}
+        if data.get("mode") == "condition" or "condition" in data or "timeout" in data:
+            node["data"] = {key: value for key, value in data.items() if key not in ("condition", "timeout") and not (key == "mode" and value == "condition")}
+            level["wires"] = [w for w in level.get("wires") or [] if not (isinstance(w, dict) and str(w.get("from")) == str(node["id"]) and w.get("out") == "timeout")]
+            changed = True
+    return changed
+
+
+def wait_nodes(doc):
+    """Ноды «Ждать» без условия и таймаута. True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _wait_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _wait_level(group) or changed
+    return changed
+
+
 def attributes(doc):
     """Состояние машины и доступ учётки ушли в атрибуты, дефекты из «Машина: Изменить» — в «Изменить состояние». True — граф поменялся."""
     if not isinstance(doc, dict):

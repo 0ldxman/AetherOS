@@ -27,7 +27,6 @@
   // поля, которые есть в выбранном режиме (как в Blender: режим меняет набор входов); подключённые видны всегда
   const inMode = (f: Field) => {
     const mode = String(values.mode ?? "");
-    if (kind.name === "wait") return ({ minutes: (mode || "delay") === "delay", at: mode === "until", condition: mode === "condition", timeout: mode === "condition" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "do:player_count") return ({ delta: mode !== "set", value: mode === "set" } as Record<string, boolean>)[f.name] ?? true;
     if (kind.name === "answer") return ({ text: mode !== "allow" && mode !== "default", minutes: mode === "block" } as Record<string, boolean>)[f.name] ?? true;
     return inWhen(kind, values, f.name);

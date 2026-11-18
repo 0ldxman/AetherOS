@@ -255,7 +255,25 @@ const given = (value: unknown) => value !== undefined && value !== null && value
 // поле задано: в него идёт провод или в нём что-то вписано
 export const isSet = (data: Record<string, unknown>, usedIn: string[], name: string) => usedIn.includes(`f:${name}`) || given(data[name]);
 
+const WAIT_UNITS: [string, [string, string, string]][] = [["days", ["день", "дня", "дней"]], ["hours", ["час", "часа", "часов"]],
+  ["minutes", ["минуту", "минуты", "минут"]], ["seconds", ["секунду", "секунды", "секунд"]]];
+const plural = (n: number, f: [string, string, string]) =>
+  n !== Math.floor(n) ? f[1] : n % 10 === 1 && n % 100 !== 11 ? f[0] : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? f[1] : f[2];
+// «Ждать 5 минут», «Ждать до 2031-01-01 12:30» (поле с проводом в заголовок не берём)
+function waitTitle(data: Record<string, unknown>, usedIn: string[]): string {
+  if (String(data.mode ?? "delay") === "until") {
+    const at = String(data.at ?? "").trim();
+    return at && !usedIn.includes("f:at") ? `Ждать до ${at}` : "Ждать до";
+  }
+  const parts = WAIT_UNITS.flatMap(([name, forms]) => {
+    const n = Number(String(data[name] ?? 0).replace(",", "."));
+    return n > 0 && !usedIn.includes(`f:${name}`) ? [`${n} ${plural(n, forms)}`] : [];
+  });
+  return parts.length ? `Ждать ${parts.join(" ")}` : "Ждать";
+}
+
 export function titleOf(kind: Kind, data: Record<string, unknown>, usedIn: string[] = []): string {
+  if (kind.name === "wait") return waitTitle(data, usedIn);
   const named = Object.entries(kind.titled ?? {}).find(([name]) => isSet(data, usedIn, name));
   if (named) return named[1];                                    // «Размещение: Создать» с объектом — «Размещение: Добавить»
   if (!kind.title) return kind.label;
@@ -349,6 +367,7 @@ export function defaults(kind: Kind): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const f of kind.fields) if (isChoice(f) && f.options.length) data[f.name] = f.options[0].value;
   if (kind.name === "random") data.branches = [1, 1];
+  if (kind.name === "wait") data.minutes = 5;
   for (const name of ["count"]) if (kind.fields.some((f) => f.name === name)) data[name] = kind.name === "first" ? 1 : 2;
   return data;
 }

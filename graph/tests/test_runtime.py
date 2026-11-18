@@ -158,14 +158,35 @@ class WaitTests(TestCase):
         runtime.tick(force=True)
         self.assertEqual(counter(), 1)
 
-    def test_wait_condition_wakes_on_players_event(self):
-        graph = make([node("m", "manual"), node("w", "wait", mode="condition", condition="tag:ready"), node("a", "do:world_count", name="c")],
+    def test_wait_adds_up_the_fields_and_takes_them_from_wires(self):
+        graph = make([node("m", "manual"), node("w", "wait", real=True, days=1, hours=2, minutes=30, seconds=30), node("n", "number", value=3),
+                      node("a", "do:world_count", name="c")],
                      [wire("m", "fire", "w"), wire("w", "next", "a")])
         runtime.start_manual(graph, "m", self.ivan)
-        self.assertEqual(counter(), 0)
-        store.set_tag("player", self.ivan.pk, "ready")
-        emit("file.read", self.ivan, path="/x")
-        self.assertEqual(counter(), 1)
+        span = (Wait.objects.get().until - timezone.now()).total_seconds()
+        self.assertAlmostEqual(span, 86400 + 7200 + 1800 + 30, delta=5)
+        from graph import check
+
+        self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
+        Wait.objects.all().delete()
+        graph = make([node("m", "manual"), node("w", "wait", real=True), node("n", "number", value=3), node("a", "do:world_count", name="d")],
+                     [wire("m", "fire", "w"), wire("w", "next", "a"), wire("n", "value", "w", "f:hours")], slug="wired")
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertAlmostEqual((Wait.objects.get().until - timezone.now()).total_seconds(), 3 * 3600, delta=5)
+
+    def test_wait_until_a_date_and_the_title(self):
+        from graph import nodes as N
+
+        graph = make([node("m", "manual"), node("w", "wait", mode="until", at="2031-05-14 21:00", real=True), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "w"), wire("w", "next", "a")])
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(Wait.objects.get().until.strftime("%Y-%m-%d %H:%M"), "2031-05-14 21:00")
+        kind = N.KINDS["wait"]
+        self.assertEqual(N.wait_title({"mode": "until", "at": "2031-01-01 12:30"}), "Ждать до 2031-01-01 12:30")
+        self.assertEqual([N.wait_title(d) for d in ({"minutes": 5}, {"minutes": 1}, {"hours": 1, "minutes": 30}, {"days": 2, "seconds": 21}, {})],
+                         ["Ждать 5 минут", "Ждать 1 минуту", "Ждать 1 час 30 минут", "Ждать 2 дня 21 секунду", "Ждать"])
+        self.assertEqual(N.titled(kind, {"minutes": 5}), "Ждать 5 минут")
+        self.assertEqual(N.sockets(kind, {}, "out"), ["next"])
 
     def test_race_cancels_other_branch(self):
         graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("r", "race", count=2),

@@ -252,3 +252,14 @@ class FamilyTests(TestCase):
         self.assertEqual([n for n, k in kinds.items() if k["family"] == "Направить"], ["check", "random", "turns"])
         self.assertEqual([n for n, k in kinds.items() if k["family"] == "Ожидание входов"], ["all", "race", "some"])
         self.assertEqual(kinds["each"]["family"], "")
+
+
+class WaitUpgradeTests(TestCase):
+    def test_condition_and_timeout_go(self):
+        doc = {"nodes": [node("w", "wait", mode="condition", condition="tag:x", timeout=5, minutes=3), node("t", "act:tag"), node("n", "wait", mode="until", at="21:00")],
+               "wires": [wire("w", "next", "t"), wire("w", "timeout", "t")]}
+        self.assertTrue(upgrade.wait_nodes(doc))
+        self.assertEqual(doc["nodes"][0]["data"], {"minutes": 3})
+        self.assertEqual([(w["out"]) for w in doc["wires"]], ["next"])
+        self.assertEqual(doc["nodes"][2]["data"], {"mode": "until", "at": "21:00"})
+        self.assertFalse(upgrade.wait_nodes(doc))

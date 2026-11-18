@@ -188,10 +188,10 @@ def _part(part, groups, prefix, add, slug):
                     add(key, str(error))
         if kind.name == "wait":
             mode = data.get("mode") or "delay"
-            if mode == "condition" and not data.get("condition"):
-                add(key, "нужно условие")
             if mode == "until" and not data.get("at") and (node_id, "at") not in doc.refs:
                 add(key, "нужно время ЧЧ:ММ или дата")
+            if mode == "delay" and not any(data.get(name) or (node_id, name) in doc.refs for name in N.WAIT_UNITS):
+                add(key, "не задано, сколько ждать", WARNING)
         if kind.name == "launch" and data.get("graph"):
             other = _load(data.get("graph"))
             if other is None:

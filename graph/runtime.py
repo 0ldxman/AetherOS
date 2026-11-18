@@ -800,15 +800,9 @@ def _noun_wait(run, doc, node_id, kind):
 def _wait(run, doc, node_id):
     data = resolved(run, doc, node_id)
     mode, real = data.get("mode") or "delay", bool(data.get("real"))
-    if mode == "condition":
-        if _holds(data.get("condition"), run):
-            return ["next"]
-        Wait.objects.create(run=run, user=run.user, node=node_id, out="next", kind=Wait.Kind.CONDITION)
-        if data.get("timeout") not in (None, "", 0, "0"):
-            Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout"), real))
-        return []
+    minutes = sum((_number(data.get(name)) or 0) * factor for name, factor in (("seconds", 1 / 60), ("minutes", 1), ("hours", 60), ("days", 1440)))
     try:
-        until = until_clock(data.get("at"), real) if mode == "until" else after(data.get("minutes") or 0, real)
+        until = until_clock(data.get("at"), real) if mode == "until" else after(minutes, real)
     except ValueError as error:
         _log(run.graph, f"ждать: {error}", run.user)
         return []
@@ -1710,11 +1704,6 @@ def dispatch(event):
                 continue
             if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
-        if event.user is not None:
-            for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, user=event.user, run__status=Run.Status.RUNNING,
-                                                 run__graph__active=True).select_related("run__graph")):
-                if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
-                    touched += bool(resume(wait))
         for row in list(Start.objects.filter(event=event.name, graph__active=True).select_related("graph")):
             doc = doc_of(row.graph)
             kind = doc.kind(row.node)
@@ -1870,9 +1859,6 @@ def tick(force=False):
     done = 0
     for wait in list(Wait.objects.filter(until__lte=timezone.now(), run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
         done += bool(resume(wait))
-    for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
-        if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
-            done += bool(resume(wait))
     done += _time_starts()
     done += whiles()
     return done
