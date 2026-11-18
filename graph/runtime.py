@@ -1462,7 +1462,7 @@ def _room(spawn, data):
 
 
 def _open_vacancy(graph, doc, node_id, parent=None):
-    """Открыть свободную ветку «Ветвления» с повтором, если набор открыт, есть место и вакансии ещё нет."""
+    """Открыть свободную ветку «Ветвления» с повтором, если повтор включён, есть место и свободной ветки ещё нет."""
     from graph.models import Branching
 
     start_at = _head_of(doc, node_id)
@@ -1518,12 +1518,12 @@ def _occupy(run, event):
 
 
 def _gate(run, doc, node_id, data):
-    """«Набор ветвления»: закрыть (свободная вакансия снимается) или открыть (вакансия появляется снова)."""
+    """«Повтор ветвления»: отключить (свободная ветка снимается) или включить (свободная ветка появляется снова)."""
     from graph.models import Branching
 
     forks = [src for (dst, name), (src, _) in doc.refs.items() if dst == node_id and name == "branches"]
     if not forks:
-        _log(run.graph, "«Набор ветвления»: не подключён набор", run.user)
+        _log(run.graph, "«Повтор ветвления»: не подключено ветвление", run.user)
     for fork in forks:
         spawn, _ = Branching.objects.get_or_create(graph=run.graph, node=fork)
         if data.get("mode") == "open":
@@ -1584,7 +1584,7 @@ def _crew(run, doc, node_id, data):
 
 
 def _claim(run, data):
-    """«Занять тег»: поставить, если ещё не стоит (атомарно). «set» — это мы, «already» — уже стоял."""
+    """«Тег: Поставить, если нет»: поставить, если ещё не стоит (атомарно). «set» — это мы, «already» — уже стоял."""
     from engine import values
 
     name = str(data.get("name") or "").strip()
@@ -1593,7 +1593,7 @@ def _claim(run, data):
     try:
         took = values.set_tag(owner, oid, name, True, user=user, source="scenario")
     except values.BadValue as error:
-        _log(run.graph, f"«Занять тег»: {error}", run.user)
+        _log(run.graph, f"«Тег: Поставить, если нет»: {error}", run.user)
         return ["already"]
     return ["set" if took else "already"]
 
