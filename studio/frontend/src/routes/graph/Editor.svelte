@@ -242,11 +242,11 @@
       node.data = { ...node.data, group };
       doc = { ...doc, groups: { ...doc.groups, [group]: { title: "Наблюдение", nodes: [], wires: [] } } };
     }
-    if (kind.name === "each") {                      // ветка на элемент: внутри «Начало ветки» → «Конец ветки»
+    if (kind.name === "each" || kind.name === "branching") {   // ветка: внутри «Начало ветки» → «Конец ветки»
       const group = freeGroup();
       node.data = { ...node.data, group };
-      doc = { ...doc, groups: { ...doc.groups, [group]: { title: "Ожидание веток", nodes: [
-        { id: "start", type: "branch_in", x: 0, y: 0, data: {} }, { id: "end", type: "branch_out", x: 520, y: 0, data: {} }],
+      doc = { ...doc, groups: { ...doc.groups, [group]: { title: kind.label, nodes: [
+        { id: "start", type: kind.name === "branching" ? "branch_head" : "branch_in", x: 0, y: 0, data: {} }, { id: "end", type: "branch_out", x: 520, y: 0, data: {} }],
         wires: [{ id: "start.next-end.in", from: "start", out: "next", to: "end", in: "in" }] } } };
     }
     const wires = [...level.wires];

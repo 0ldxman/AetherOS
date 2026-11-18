@@ -215,6 +215,12 @@ def _part(part, groups, prefix, add, slug):
             _, action = N.action_of(kind, data)
             for text in engine.check([action], provides=("world", "user", "account")):
                 add(key, text.split(": ", 1)[-1])
+        if kind.name == "branching":
+            types = {(n or {}).get("type") for n in ((groups.get(str(data.get("group") or "")) or {}).get("nodes") or [])}
+            if "branch_head" not in types:
+                add(key, "внутри нет «Начала ветки»")
+            elif data.get("repeat") == "yes" and "branch_owner" not in types:
+                add(key, "«Повторять» без «Ветка: Назначить владельца»: занятая ветка так и останется ничьей", WARNING)
         if kind.name == "join":                              # последний вход — запасной (растёт сам), его не проверяем
             for sock in N.sockets(kind, data, "in")[:-1]:
                 if not any(dst == node_id and inp == sock for targets in doc.flow.values() for dst, inp in targets):

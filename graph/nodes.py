@@ -19,12 +19,12 @@ GROUPS = {ENTITY: "Сущности", ATTR: "Атрибуты", NOUN: "Триг�
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message", "os")
+         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message", "os", "branches")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сетевой ресурс", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
                "datetime": "дату и время", "volume": "диск", "mount": "диск машины", "message": "сообщение",
-               "os": "операционную систему"}
+               "os": "операционную систему", "branches": "ветки"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
           "session", "volume", "mount", "os")
 
@@ -74,7 +74,7 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "os", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
                "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount",
-               "message": "message"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "message": "message", "branches": "branches"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -594,6 +594,34 @@ register(Kind("each", "Ожидание веток", FLOW, "{mode}", (
     Field("mode", "Ждать", "switch", "", False, (("all", "Все"), ("first", "Любой"), ("count", "По количеству"))),
     Field("need", "Сколько", "number", "2")), (Sock("done", "Готово"),), typed="of", types_from=("list",), when={"need": ("mode", ("count",))}))
 DATA_OUTS["each"] = (Sock("finished", "Успели", OF_LIST), Sock("first", "Первый", ELEMENT))
+register(Kind("branching", "Ветвление", FLOW, "{repeat}", (
+    Field("repeat", "Повторять", "switch", "", False, (("no", "Нет"), ("yes", "Да"))),
+    Field("total", "Веток всего", "number", "пусто — без предела"),
+    Field("per", "На инициатора", "number", "1")),
+    (Sock("next", "Дальше"),), when={"total": ("repeat", ("yes",)), "per": ("repeat", ("yes",))}))
+DATA_OUTS["branching"] = (Sock("gate", "Набор", "branches"),)
+register(Kind("branch_head", "Начало ветки", FLOW, "", (), (Sock("next", "Поток"),), ins=(), hidden=True))
+DATA_OUTS["branch_head"] = (Sock("owner", "Владелец", "text"),)
+register(Kind("branch_owner", "Ветка: Назначить владельца", FLOW, "{who}", (
+    Field("who", "Кого", "switch", "", False, (("player", "Игрок"), ("crew", "Группа инициаторов"))),
+    Field("player", "Игрок", "player", "инициатор"), Field("crew", "Группа", "text", "красные", True)),
+    (Sock("next", "Дальше"),), when={"player": ("who", ("player",)), "crew": ("who", ("crew",))}))
+register(Kind("branch_unowner", "Ветка: Снять владельца", FLOW, "", (), (Sock("next", "Дальше"),)))
+register(Kind("branch_gate", "Набор ветвления", FLOW, "{mode}", (
+    Field("branches", "Набор", "branches"), Field("mode", "Действие", "switch", "", False, (("close", "Закрыть"), ("open", "Открыть")))),
+    (Sock("next", "Дальше"),)))
+register(Kind("crew", "Группа инициаторов", FLOW, "{mode} · {name}", (
+    Field("mode", "Действие", "select", "", False, (("add", "Добавить"), ("remove", "Убрать"), ("close", "Закрыть вступление"), ("open", "Открыть вступление"))),
+    Field("name", "Группа", "text", "красные", True),
+    Field("player", "Кого", "player", "инициатор"),
+    Field("limit", "Не больше", "number", "0 — без предела")),
+    (Sock("next", "Готово"), Sock("full", "Закрыта")),
+    when={"player": ("mode", ("add", "remove")), "limit": ("mode", ("add",)), "full": ("mode", ("add",))}))
+DATA_OUTS["crew"] = (Sock("count", "Участников", "number"), Sock("members", "Состав", "list:player"))
+register(Kind("claim", "Занять тег", FLOW, "{name}", (
+    Field("scope", "Где", "switch", "", False, (("world", "В мире"), ("player", "У игрока"))),
+    Field("name", "Тег", "text", "победитель", True)),
+    (Sock("set", "Поставлен"), Sock("already", "Уже было"))))
 register(Kind("watch", "Наблюдение", FLOW, "{while}", (
     Field("while", "Пока", "condition", "всегда; tag:world:alarm — ловить, только пока верно"),
     Field("branches", "Ветки при снятии", "switch", "", False, (("cancel", "Снимаются"), ("keep", "Доживают")))),
@@ -612,6 +640,21 @@ HELP_EACH = {
     "each": "Ожидание веток: ветка на каждый элемент списка (Tab — внутрь): от «Начала ветки» до «Конца ветки», внутри можно ждать. Элемент-игрок — инициатор ветки, "
             "элемент-учётка — её место (у триггеров «Ждать от: Элемента» — только события на ней). «Готово» — когда вернулись все, любая (первая) или по количеству; "
             "остальные ветки снимаются. Выходы: Успели (по порядку), Первый.",
+    "branching": "Ветвление: основной поток идёт «Дальше», а рядом рождается ветка — отдельный поток внутри (Tab): «Начало ветки» → … → «Конец ветки». "
+                 "Пока в ветке никого не назначили владельцем, её двигает любой. «Ветка: Назначить владельца» закрепляет её за игроком или группой "
+                 "инициаторов — дальше ждущие триггеры слышат только их. «Повторять»: ветка — вакансия; когда её занимает первый сработавший триггер, "
+                 "рядом открывается такая же, пока не набралось «Веток всего» и не закрыт набор. «На инициатора» — сколько веток может занять один игрок. "
+                 "Выход «Набор» — для «Набор ветвления» (закрыть или открыть из любого места).",
+    "branch_head": "Начало ветки «Ветвления»: Поток и Владелец (кому сейчас принадлежит ветка; пусто — никому).",
+    "branch_owner": "Назначить владельца ветки: игрок (пусто — инициатор, то есть тот, кто сделал последний триггер) или группа инициаторов. "
+                    "Дальше, до «Снять владельца», триггеры ветки слышат только владельца (для группы — любого её члена). Ставьте сразу после первого триггера.",
+    "branch_unowner": "Снять владельца ветки: дальше её двигает любой.",
+    "branch_gate": "Закрыть или открыть набор «Ветвления» (провод «Набор»). Закрыть — свободная вакансия снимается, занятые ветки идут. "
+                   "Открыть — вакансия появляется снова, если не исчерпан лимит «Веток всего».",
+    "crew": "Группа инициаторов — именованный живой состав игроков: «Добавить», «Убрать», «Закрыть вступление», «Открыть вступление». Работает из любого места графа. "
+            "«Добавить» атомарно: кто успел, тот в группе; «Не больше» закрывает вход, когда набралось; закрыта — выход «Закрыта». "
+            "Группа — владелец ветки («Ветка: Назначить владельца»): её двигает любой из группы. Выходы: Участников, Состав.",
+    "claim": "Занять тег: поставить тег, только если он ещё не стоит. Атомарно — из двух одновременных пройдёт один: «Поставлен», другой — «Уже было».",
     "branch_in": "Начало ветки «Ожидания веток»: Элемент и Номер (с 1).",
     "branch_out": "Конец ветки: элемент вернулся — засчитан в «Успели».",
 }

@@ -13,7 +13,7 @@ export type Sock = { name: string; label: string; type?: string };
 export type Iface = { inputs: Sock[]; outputs: Sock[] };
 export const BOXES = ["group", "scenario"];
 const IN_LABELS: Record<string, string> = { stop: "Снять наблюдение" };      // входы потока, кроме «Когда»
-export const HOLDERS = ["group", "each", "watch"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
+export const HOLDERS = ["group", "each", "watch", "branching"];      // ноды со своим уровнем в doc.groups: Tab — внутрь
 
 // триггеры (руками игрока) и события (время, сигнал, сценарий, автор): старт без провода, ожидание со входом
 export const isTrigger = (kind: { group: string }) => kind.group === "noun" || kind.group === "happen";
@@ -49,6 +49,7 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   mount: { label: "Диск машины", color: "#6fb38f", thing: true },
   message: { label: "Сообщение", color: "#d9a3c4", thing: true },
   os: { label: "Операционная система", color: "#9a8cff", thing: true },
+  branches: { label: "Ветки", color: "#cdd6ff" },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)

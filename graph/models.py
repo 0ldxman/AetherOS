@@ -57,7 +57,11 @@ class Run(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     ended_at = models.DateTimeField(null=True, blank=True)
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.CASCADE, related_name="children",
-                               help_text="Ветка «Ожидания веток»: поток, который её запустил и ждёт её «Конца ветки».")
+                               help_text="Ветка «Ожидания веток» или «Ответвить»: поток, который её запустил.")
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+                              help_text="Владелец потока: двигают его только его действия. Пусто (и без группы) — любой игрок.")
+    crew = models.ForeignKey("Crew", null=True, blank=True, on_delete=models.SET_NULL, related_name="runs",
+                             help_text="Группа инициаторов — владелец потока: его двигает любой из группы.")
 
     class Meta:
         ordering = ("-started_at", "-id")
@@ -155,3 +159,37 @@ class Mark(models.Model):
         constraints = [models.UniqueConstraint(fields=("graph", "node", "user"), name="unique_graph_mark")]
         verbose_name = "Счётчик ноды"
         verbose_name_plural = "Счётчики нод"
+
+
+class Crew(models.Model):
+    """Группа инициаторов: именованный состав игроков сценария. Состав живой: нода «Группа инициаторов» добавляет, убирает, закрывает
+    и открывает вступление из любого места графа. Группа — владелец потока: его двигает любой из неё."""
+
+    graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="crews")
+    name = models.CharField("Имя", max_length=64)
+    members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+", blank=True)
+    closed = models.BooleanField("Закрыта для вступления", default=False)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("graph", "name"), name="unique_graph_crew")]
+        verbose_name = "Группа инициаторов"
+        verbose_name_plural = "Группы инициаторов"
+
+    def __str__(self):
+        return self.name
+
+
+class Branching(models.Model):
+    """Набор «Ветвления» с повтором: открыт ли он, сколько веток уже занято и кем. Свободная ветка (вакансия) — обычный Run
+    с state.vacancy; занята она, когда сработал её первый триггер."""
+
+    graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="branchings")
+    node = models.CharField(max_length=64)
+    open = models.BooleanField("Открыт", default=True)
+    taken = models.PositiveIntegerField("Занято веток", default=0)
+    users = models.JSONField("Сколько веток у игрока", default=dict, blank=True)     # {номер игрока: веток}
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("graph", "node"), name="unique_graph_branching")]
+        verbose_name = "Набор ветвления"
+        verbose_name_plural = "Наборы ветвлений"
