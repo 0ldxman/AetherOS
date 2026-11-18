@@ -514,7 +514,7 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name in ("branch_in", "each", "watch"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
+    if kind.name in ("branch_in", "each", "watch", "wait_cond"):  # элемент и номер ветки; у «Ожидание веток» — кто успел и кто первый
         return (((run.state or {}).get("vals") or {}).get(node_id) or {}).get(out)
     if kind.group in N.NOUNS:
         if kind.owned:                               # данные «Выхода» графа попытки приехали с событием
@@ -794,6 +794,23 @@ def _noun_wait(run, doc, node_id, kind):
                             data=fed)
     if data.get("timeout") not in (None, "", 0, "0") and N.TIMEOUT in doc.wired(node_id):
         Wait.objects.create(run=run, user=run.user, node=node_id, out=N.TIMEOUT, kind=Wait.Kind.TIME, until=after(data.get("timeout")))
+    return []
+
+
+def _met(run, node_id):
+    """Условие выполнено: запомнить игровое время («Когда»)."""
+    from graph import times
+
+    vals = {**((run.state or {}).get("vals") or {}), node_id: {"when": times.text(times.now())}}
+    run.state = {**(run.state or {}), "vals": vals}
+
+
+def _wait_cond(run, doc, node_id):
+    """«Ждать условие»: верно сейчас — дальше сразу, иначе стоим и пересчитываем на событиях инициатора и по таймеру."""
+    if _holds(resolved(run, doc, node_id).get("condition"), run):
+        _met(run, node_id)
+        return ["next"]
+    Wait.objects.create(run=run, user=run.user, node=node_id, out="next", kind=Wait.Kind.CONDITION)
     return []
 
 
@@ -1215,6 +1232,8 @@ def _execute(run, doc, node_id, sock):
         return ["next"]
     if name == "wait":
         return _wait(run, doc, node_id)
+    if name == "wait_cond":
+        return _wait_cond(run, doc, node_id)
     if name == "check":
         return ["yes" if _holds(data.get("condition"), run) else "no"]
     if name == "random":
@@ -1644,6 +1663,8 @@ def resume(wait, event=None):
         deleted, _ = Wait.objects.filter(run=run, node=wait.node).delete()
         if not deleted:
             return None                              # уже сработало в другом запросе
+        if wait.kind == Wait.Kind.CONDITION:
+            _met(run, wait.node)
         if event is not None:
             ctx = run.ctx or {}
             took = _take(run, event)
@@ -1704,6 +1725,11 @@ def dispatch(event):
                 continue
             if kind is not None and kind.match is not None and kind.match(data, wait.out, event):
                 touched += bool(resume(wait, event))
+        if event.user is not None:
+            for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, user=event.user, run__status=Run.Status.RUNNING,
+                                                 run__graph__active=True).select_related("run__graph")):
+                if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
+                    touched += bool(resume(wait))
         for row in list(Start.objects.filter(event=event.name, graph__active=True).select_related("graph")):
             doc = doc_of(row.graph)
             kind = doc.kind(row.node)
@@ -1859,6 +1885,9 @@ def tick(force=False):
     done = 0
     for wait in list(Wait.objects.filter(until__lte=timezone.now(), run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
         done += bool(resume(wait))
+    for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
+        if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
+            done += bool(resume(wait))
     done += _time_starts()
     done += whiles()
     return done

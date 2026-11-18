@@ -72,6 +72,7 @@ class Wait(models.Model):
     class Kind(models.TextChoices):
         EVENT = "event", "Событие"
         TIME = "time", "Время"
+        CONDITION = "condition", "Условие"
 
     run = models.ForeignKey(Run, on_delete=models.CASCADE, related_name="waits")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")

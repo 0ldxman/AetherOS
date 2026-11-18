@@ -102,7 +102,7 @@ def _cycles(doc):
 
 def _waits(doc, node_id):
     kind = doc.kind(node_id)
-    return kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and node_id in doc.fed))
+    return kind is not None and (kind.name in ("wait", "wait_cond") or (kind.group in N.NOUNS and node_id in doc.fed))
 
 
 def _iface_of(node, groups, add, key):
@@ -255,7 +255,7 @@ def _owned_rules(raw, add):
     doc = Doc(raw)
     for node_id, node in doc.nodes.items():
         kind = N.KINDS.get(node.get("type"))
-        if kind is not None and (kind.name == "wait" or (kind.group in N.NOUNS and not kind.name.startswith("attempt:"))):
+        if kind is not None and (kind.name in ("wait", "wait_cond") or (kind.group in N.NOUNS and not kind.name.startswith("attempt:"))):
             add(node_id, "в графе попытки нельзя ждать: решение принимается сразу")
     if not any(str(n.get("type") or "").startswith("attempt:") for n in doc.nodes.values()):
         add("", "нет стартовой ноды «Попытка»")

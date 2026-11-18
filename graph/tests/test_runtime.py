@@ -188,6 +188,31 @@ class WaitTests(TestCase):
         self.assertEqual(N.titled(kind, {"minutes": 5}), "Ждать 5 минут")
         self.assertEqual(N.sockets(kind, {}, "out"), ["next"])
 
+    def test_wait_condition_wakes_on_players_event_and_records_when(self):
+        graph = make([node("m", "manual"), node("w", "wait_cond", condition="tag:ready"), node("a", "do:world_count", name="c"),
+                      node("t", "text", value="{when}", subs=[{"id": "s1", "name": "when"}])],
+                     [wire("m", "fire", "w"), wire("w", "next", "a"), wire("w", "when", "t", "s1")])
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual((counter(), Wait.objects.filter(kind=Wait.Kind.CONDITION).count()), (0, 1))
+        store.set_tag("player", self.ivan.pk, "ready")
+        emit("file.read", self.ivan, path="/x")
+        self.assertEqual((counter(), Wait.objects.count()), (1, 0))
+        vals = Run.objects.get().state["vals"]["w"]
+        self.assertRegex(vals["when"], r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
+
+    def test_wait_condition_passes_at_once_and_from_a_wire(self):
+        store.set_tag("player", self.ivan.pk, "ready")
+        graph = make([node("m", "manual"), node("w", "wait_cond", condition="tag:ready"), node("a", "do:world_count", name="c")],
+                     [wire("m", "fire", "w"), wire("w", "next", "a")])
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual((counter(), Wait.objects.count()), (1, 0))
+        graph = make([node("m", "manual"), node("w", "wait_cond"), node("b", "boolean", value=False), node("a", "do:world_count", name="d")],
+                     [wire("m", "fire", "w"), wire("w", "next", "a"), wire("b", "value", "w", "f:condition")], slug="wired")
+        runtime.start_manual(graph, "m", self.ivan)
+        self.assertEqual(counter("d"), 0)
+        runtime.tick(force=True)                             # по таймеру: условие всё ещё ложно
+        self.assertEqual(counter("d"), 0)
+
     def test_race_cancels_other_branch(self):
         graph = make([node("m", "manual"), node("f1", "on:tag", owner="player", name="a"), node("f2", "on:tag", owner="player", name="b"), node("r", "race", count=2),
                       node("x", "do:world_count", name="c"), node("y", "do:world_count", name="d")],
