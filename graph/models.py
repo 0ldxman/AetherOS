@@ -194,3 +194,14 @@ class Branching(models.Model):
         constraints = [models.UniqueConstraint(fields=("graph", "node"), name="unique_graph_branching")]
         verbose_name = "Набор ветвления"
         verbose_name_plural = "Наборы ветвлений"
+
+
+class Shared(models.Model):
+    """Переменные сценария: один общий словарь «путь → значение» на сценарий (ноды «Переменная: …»). Живёт, пока есть сценарий."""
+
+    graph = models.OneToOneField(Graph, on_delete=models.CASCADE, related_name="shared")
+    data = models.JSONField("Переменные", default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "Переменные сценария"
+        verbose_name_plural = "Переменные сценариев"

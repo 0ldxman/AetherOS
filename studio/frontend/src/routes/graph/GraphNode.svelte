@@ -74,7 +74,7 @@
   const grow = $derived(kind.grow ?? null);
   const growType = $derived(grow ? resolveType(kind, values, grow.type) : "");
   const noValue = $derived(valueless(kind, values));
-  const keyed = $derived(kind.name === "dict" || kind.name.startsWith("data_"));
+  const keyed = $derived(kind.name === "dict" || kind.name.startsWith("data_") || kind.name.startsWith("var_"));
   const rows = $derived(visibleRows(kind, values).filter((r) => !hide || data.usedIn.includes(`f:${r.id}`)));
   const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `${i + 1}`);
   function setRow(row: Row, patch: Partial<Row>) {

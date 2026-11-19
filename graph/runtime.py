@@ -566,6 +566,20 @@ def _items_dict(run, doc, node_id, depth=0):
     return out
 
 
+def _apply(out, key, op, value):
+    """Действие над ключом словаря: поставить, прибавить / вычесть, в список, из списка."""
+    now = _dig(out, key)
+    if op in ("add", "sub"):
+        total = (_number(now) or 0) + (_number(value) or 0) * (1 if op == "add" else -1)
+        _put(out, key, _plain(total))
+    elif op == "push":
+        _put(out, key, [*(now if isinstance(now, list) else [] if now in (None, "") else [now]), value])
+    elif op == "pull":
+        _put(out, key, [item for item in (now if isinstance(now, list) else []) if str(item) != str(value)])
+    else:
+        _put(out, key, value)
+
+
 def _changed(run, doc, node_id, depth=0):
     """«Данные: Изменить»: словарь после действия ноды (на месте в потоке или копия с провода)."""
     kind, data = doc.kind(node_id), doc.data(node_id)
@@ -582,18 +596,38 @@ def _changed(run, doc, node_id, depth=0):
             continue
         value = _clean(input_of(run, doc, node_id, row["id"], depth + 1))
         value = "" if value is None else value
-        op, now = row.get("op") or "set", _dig(out, key)
-        if op in ("add", "sub"):
-            left, right = _number(now), _number(value)
-            total = (left or 0) + (right or 0) * (1 if op == "add" else -1)
-            _put(out, key, _plain(total))
-        elif op == "push":
-            _put(out, key, [*(now if isinstance(now, list) else [] if now in (None, "") else [now]), value])
-        elif op == "pull":
-            _put(out, key, [item for item in (now if isinstance(now, list) else []) if str(item) != str(value)])
-        else:
-            _put(out, key, value)
+        _apply(out, key, row.get("op") or "set", value)
     return out
+
+
+def _shared(graph):
+    from graph.models import Shared
+
+    found = Shared.objects.filter(graph=graph).only("data").first()
+    return found.data if found and isinstance(found.data, dict) else {}
+
+
+def _set_vars(run, doc, node_id, data):
+    """«Переменная: Изменить»: весь шаг под блокировкой словаря сценария."""
+    from graph.models import Shared
+
+    mode = data.get("mode") or "set"
+    items = []
+    for row in N.rows(doc.kind(node_id), data):
+        key = str(row.get("name") or "").strip()
+        if key and mode not in ("clear",):
+            value = _clean(input_of(run, doc, node_id, row["id"]))
+            items.append((key, "" if value is None else value))
+    with transaction.atomic():
+        shared, _ = Shared.objects.select_for_update().get_or_create(graph=run.graph)
+        out = {} if mode == "clear" else copy.deepcopy(shared.data if isinstance(shared.data, dict) else {})
+        for key, value in items:
+            if mode == "delete":
+                _drop(out, key)
+            else:
+                _apply(out, key, (data.get("op") or "add") if mode == "op" else "set", value)
+        shared.data = out
+        shared.save(update_fields=["data"])
 
 
 def _plain(value):
@@ -615,6 +649,10 @@ def value_of(run, doc, node_id, out, depth=0):
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
     if kind.name == "dict":                           # «Данные»: словарь из строк
         return _items_dict(run, doc, node_id, depth)
+    if kind.name == "var_get":                        # переменная сценария по пути
+        row = next((r for r in N.rows(kind, data) if r.get("id") == out), None)
+        found = _dig(_shared(run.graph), str((row or {}).get("name") or "")) if row else None
+        return "" if found is None else found
     if kind.name == "data_set":                       # изменённые данные: в потоке — что записала нода, на проводе — чистая копия
         stored = ((run.state or {}).get("vals") or {}).get(node_id)
         if node_id in doc.fed and stored is not None:
@@ -842,8 +880,8 @@ def _shape(kind, data, name, value):
         return list(value) if isinstance(value, tuple) else value
     if isinstance(value, (list, tuple)):
         return ", ".join(str(_plain(item)) for item in value) if wanted == "text" else (value[0] if value else None)
-    if wanted == "text" and isinstance(value, (int, float)) and not isinstance(value, bool):
-        return str(_plain(value))                       # число во вход-текст подставляется текстом
+    if (wanted == "text" or wanted in N.THINGS) and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(_plain(value))                       # число во вход-текст (и во вход «по имени») подставляется текстом
     return value
 
 
@@ -1405,6 +1443,9 @@ def _execute(run, doc, node_id, sock):
         run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"data": result}}}
         return ["next"]
     if name == "data_get":
+        return ["next"]
+    if name == "var_set":
+        _set_vars(run, doc, node_id, doc.data(node_id))
         return ["next"]
     if name == "branch_owner":
         return _owner(run, doc, data)
