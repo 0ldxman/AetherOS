@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, isTrigger, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, valueless, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, isTrigger, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, isRow, socketFields, titleOf, typeColor, visibleRows, valueless, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -54,7 +54,7 @@
     }
     return found;
   });
-  const lone = $derived(outs.filter((o) => !Object.values(paired).includes(o)));
+  const lone = $derived(outs.filter((o) => !Object.values(paired).includes(o) && !(kind.grow?.outs && isRow(kind, o.name))));
   // сверху — выходы-события (и сокеты групп), снизу, под всеми полями, — выходы данных без своего поля
   const isData = (o: (typeof outs)[number]) => (o.type ?? "event") !== "event" && !BOXES.includes(kind.name) && kind.name !== "group_in";
   const topOuts = $derived(lone.filter((o) => !isData(o)));
@@ -262,6 +262,14 @@
             {#if !fed}
               <input class="nodrag inline" value={row.value === undefined || row.value === null ? "" : String(row.value)} placeholder="значение"
                      disabled={!data.editable} aria-label="Значение" oninput={(e) => setRow(row, { value: e.currentTarget.value || undefined })} />
+            {/if}
+          {/if}
+          {#if grow.outs}
+            {@const out = outs.find((o) => o.name === row.id)}
+            {#if out}
+              <span class="pass" class:used={data.used.includes(out.name)} data-tip={outTip(out.name, out.label, out.type)}>
+                <Handle type="source" position={Position.Right} id={out.name} class="sock" {...paint(out.type ?? "event")} {...look(out.type)} />
+              </span>
             {/if}
           {/if}
         {:else}
