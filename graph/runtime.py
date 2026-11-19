@@ -8,6 +8,7 @@ middleware мира. Прохождение одного игрока в одн�
 Ни одна ошибка сценария не роняет игру: причина пишется в журнал мира.
 """
 import contextvars
+import copy
 import logging
 import re
 import threading
@@ -504,6 +505,97 @@ def _number(value):
         return None
 
 
+# ---------- данные: словарь «ключ → значение» (путь через точку — вложенные данные) ----------
+
+def _clean(value):
+    """В данные кладётся только то, что хранится в JSON."""
+    if isinstance(value, dict):
+        return {str(k): _clean(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_clean(v) for v in value]
+    return _plain(value) if isinstance(value, (str, int, float, bool)) or value is None else str(value)
+
+
+def _dig(data, path):
+    node = data
+    for part in [p for p in str(path or "").split(".") if p]:
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def _walk(data, path, make):
+    parts = [p for p in str(path or "").split(".") if p]
+    node = data
+    for part in parts[:-1]:
+        if not isinstance(node.get(part), dict):
+            if not make:
+                return None, ""
+            node[part] = {}
+        node = node[part]
+    return (node, parts[-1]) if parts else (None, "")
+
+
+def _put(data, path, value):
+    node, last = _walk(data, path, True)
+    if node is not None:
+        node[last] = value
+
+
+def _drop(data, path):
+    node, last = _walk(data, path, False)
+    if node is not None:
+        node.pop(last, None)
+
+
+def _base(run, doc, node_id, depth=0):
+    """Словарь, с которым работает нода: пришедший по проводу «Данные», а без провода — данные самого потока (копия)."""
+    src = doc.refs.get((node_id, "in"))
+    found = value_of(run, doc, src[0], src[1], depth + 1) if src else (run.state or {}).get("data")
+    return copy.deepcopy(found) if isinstance(found, dict) else {}
+
+
+def _items_dict(run, doc, node_id, depth=0):
+    kind, out = doc.kind(node_id), {}
+    for row in N.rows(kind, doc.data(node_id)):
+        key = str(row.get("name") or "").strip()
+        if key:
+            value = input_of(run, doc, node_id, row["id"], depth + 1)
+            _put(out, key, _clean("" if value is None else value))
+    return out
+
+
+def _changed(run, doc, node_id, depth=0):
+    """«Данные: Изменить»: словарь после действия ноды (на месте в потоке или копия с провода)."""
+    kind, data = doc.kind(node_id), doc.data(node_id)
+    mode = data.get("mode") or "set"
+    if mode == "clear":
+        return {}
+    out = _base(run, doc, node_id, depth)
+    for row in N.rows(kind, data):
+        key = str(row.get("name") or "").strip()
+        if not key:
+            continue
+        if mode == "delete":
+            _drop(out, key)
+            continue
+        value = _clean(input_of(run, doc, node_id, row["id"], depth + 1))
+        value = "" if value is None else value
+        op, now = row.get("op") or "set", _dig(out, key)
+        if op in ("add", "sub"):
+            left, right = _number(now), _number(value)
+            total = (left or 0) + (right or 0) * (1 if op == "add" else -1)
+            _put(out, key, _plain(total))
+        elif op == "push":
+            _put(out, key, [*(now if isinstance(now, list) else [] if now in (None, "") else [now]), value])
+        elif op == "pull":
+            _put(out, key, [item for item in (now if isinstance(now, list) else []) if str(item) != str(value)])
+        else:
+            _put(out, key, value)
+    return out
+
+
 def _plain(value):
     if isinstance(value, float) and value.is_integer():
         return int(value)
@@ -521,11 +613,19 @@ def value_of(run, doc, node_id, out, depth=0):
     if kind.name in ("group_in", "group_out"):
         src = doc.into.get((node_id, out))
         return value_of(run, doc, src[0], src[1], depth + 1) if src else None
-    if kind.name == "branch_data":                    # данные потока по имени
-        found = ((run.state or {}).get("data") or {}).get(str(data.get("name") or "").strip())
-        if out == "number":
-            number = _number(found)
-            return _plain(number) if number is not None else 0
+    if kind.name == "dict":                           # «Данные»: словарь из строк
+        return _items_dict(run, doc, node_id, depth)
+    if kind.name == "data_set":                       # изменённые данные: в потоке — что записала нода, на проводе — чистая копия
+        stored = ((run.state or {}).get("vals") or {}).get(node_id)
+        if node_id in doc.fed and stored is not None:
+            return stored.get("data")
+        return _changed(run, doc, node_id, depth)
+    if kind.name == "data_get":
+        base = _base(run, doc, node_id, depth)
+        if out == "data":
+            return base
+        row = next((r for r in N.rows(kind, data) if r.get("id") == out), None)
+        found = _dig(base, str((row or {}).get("name") or "")) if row else None
         return "" if found is None else found
     if kind.name == "branch_head":                    # кому сейчас принадлежит ветка
         return run.crew.name if run.crew_id else run.owner.get_username() if run.owner_id else ""
@@ -742,6 +842,8 @@ def _shape(kind, data, name, value):
         return list(value) if isinstance(value, tuple) else value
     if isinstance(value, (list, tuple)):
         return ", ".join(str(_plain(item)) for item in value) if wanted == "text" else (value[0] if value else None)
+    if wanted == "text" and isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(_plain(value))                       # число во вход-текст подставляется текстом
     return value
 
 
@@ -1296,10 +1398,13 @@ def _execute(run, doc, node_id, sock):
         return _join(run, doc, node_id, data, sock)
     if name == "crew":
         return _crew(run, doc, node_id, data)
-    if name == "branch_set":
-        key = str(data.get("name") or "").strip()
-        if key:
-            run.state = {**(run.state or {}), "data": {**((run.state or {}).get("data") or {}), key: _plain(data.get("value"))}}
+    if name == "data_set":
+        result = _changed(run, doc, node_id)
+        if (node_id, "in") not in doc.refs:                      # поток: данные самого потока меняются на месте
+            run.state = {**(run.state or {}), "data": result}
+        run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"data": result}}}
+        return ["next"]
+    if name == "data_get":
         return ["next"]
     if name == "branch_owner":
         return _owner(run, doc, data)

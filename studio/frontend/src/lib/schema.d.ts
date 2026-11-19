@@ -11941,6 +11941,36 @@ export interface components {
              * @default
              */
             needs: string;
+            /**
+             * Ops
+             * @default []
+             */
+            ops: components["schemas"]["GrRowOp"][];
+            /**
+             * Mode
+             * @default
+             */
+            mode: string;
+            /**
+             * Valueless
+             * @default []
+             */
+            valueless: string[];
+            /**
+             * Rowless
+             * @default []
+             */
+            rowless: string[];
+            /**
+             * Value
+             * @default true
+             */
+            value: boolean;
+            /**
+             * Outs
+             * @default false
+             */
+            outs: boolean;
         };
         /** GrInfer */
         GrInfer: {
@@ -12113,6 +12143,13 @@ export interface components {
             mode: string;
             /** Values */
             values: string[];
+        };
+        /** GrRowOp */
+        GrRowOp: {
+            /** Value */
+            value: string;
+            /** Label */
+            label: string;
         };
         /** GrSock */
         GrSock: {

@@ -50,6 +50,8 @@ export const TYPES: Record<string, { label: string; color: string; thing?: boole
   message: { label: "Сообщение", color: "#d9a3c4", thing: true },
   os: { label: "Операционная система", color: "#9a8cff", thing: true },
   branches: { label: "Ветвление", color: "#cdd6ff" },
+  data: { label: "Данные", color: "#e8c46a" },
+  any: { label: "Значение", color: "#b5b9c4" },
 };
 // списки: «list:<тип элемента>», «list:any» — вход, которому подходит любой список; @T и @list — по «Типу элементов» ноды.
 // «many:<тип>» — одно значение или список; «a|b» — подходит любой из типов (сокет в цветах всех)
@@ -104,7 +106,7 @@ export function compatible(src: string, dst: string): boolean {
 }
 
 function one(src: string, dst: string): boolean {
-  if (src === dst) return true;
+  if (src === dst || src === "any" || dst === "any") return true;
   if (dst === "text") return true;
   if (dst === "number") return src === "bool";
   if (dst === "bool") return src === "number";
@@ -214,7 +216,8 @@ export function outsOf(kind: Kind, data: Record<string, unknown>, waiting: boole
     .map((s) => ({ ...s, type: pluralType(kind, data, s.name, resolveType(kind, data, s.type)) }));
   const out: Sock[] = [...events, ...(kind.owned ? iface?.outputs ?? [] : []), ...many(kind, data, "out"), ...kind.tail.filter((s) => inWhen(kind, data, s.name))];
   if (isTrigger(kind) && !kind.start_only && waiting) out.push({ name: TIMEOUT, label: "Таймаут", type: "event" });
-  return [...out, ...values];
+  const perRow: Sock[] = kind.grow?.outs ? rowsOf(kind, data).filter((r) => String(r.name ?? "").trim()).map((r) => ({ name: r.id, label: String(r.name), type: "any" })) : [];
+  return [...out, ...values, ...perRow];
 }
 
 // выходы «Использована» по данным сущности «Возможность» (как graph/offers.used_outs): события канала, затем развилки текста
@@ -296,18 +299,21 @@ export function inWhen(kind: Kind, data: Record<string, unknown>, name: string):
 }
 
 // ---- растущий список входов (подстановки шаблона, входы «Логики») ----
-export type Row = { id: string; name?: string; value?: unknown };
+export type Row = { id: string; name?: string; value?: unknown; op?: string };
 export const isRow = (kind: Kind, name: string) => !!kind.grow && name.startsWith(kind.grow.prefix) && /^\d+$/.test(name.slice(kind.grow.prefix.length));
 export function rowsOf(kind: Kind, data: Record<string, unknown>): Row[] {
   const list = kind.grow ? data[kind.grow.field] : null;
   return Array.isArray(list) ? (list as Row[]).filter((r) => r && typeof r === "object" && r.id) : [];
 }
 const rowNum = (kind: Kind, id: string) => Number(id.slice(kind.grow!.prefix.length)) || 0;
+const growMode = (kind: Kind, data: Record<string, unknown>) => String(data[kind.grow?.mode || ""] ?? kind.fields.find((f) => f.name === kind.grow?.mode)?.options?.[0]?.value ?? "");
+export const rowless = (kind: Kind, data: Record<string, unknown>) => !!kind.grow?.rowless.includes(growMode(kind, data));
+export const valueless = (kind: Kind, data: Record<string, unknown>) => !kind.grow?.value || !!kind.grow?.valueless.includes(growMode(kind, data));
 const single = (kind: Kind, data: Record<string, unknown>) => !!kind.grow?.single.length && kind.grow.single.includes(String(data[kind.title || "op"] ?? ""));
 
 // строки на холсте: заполненные и пустые до нужного числа (одна пустая всегда, но не меньше min)
 export function visibleRows(kind: Kind, data: Record<string, unknown>): (Row & { empty?: boolean })[] {
-  if (!kind.grow) return [];
+  if (!kind.grow || rowless(kind, data)) return [];
   const stored = rowsOf(kind, data);
   if (kind.grow.needs && !stored.length && !String(data[kind.grow.needs] ?? "").includes("{")) return [];   // «Текст» без {подстановок}
   let next = Math.max(0, ...stored.map((r) => rowNum(kind, r.id))) + 1;

@@ -19,12 +19,12 @@ GROUPS = {ENTITY: "Сущности", ATTR: "Атрибуты", NOUN: "Триг�
 # Типы сокетов. event — «случилось» (по нему идёт ход), остальное — данные: читаются в момент, когда нода выполняется.
 EVENT = "event"
 TYPES = ("event", "bool", "text", "number", "item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag",
-         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message", "os", "branches")
+         "world_flag", "counter", "offer", "session", "datetime", "volume", "mount", "message", "os", "branches", "data", "any")
 TYPE_LABELS = {"event": "событие", "bool": "да/нет", "text": "текст", "number": "число", "item": "объект", "placement": "размещение", "layer": "слой", "machine": "машину", "account": "учётку",
                "server": "сетевой ресурс", "character": "персонажа", "section": "раздел", "moment": "момент", "player": "игрока",
                "flag": "метку игрока", "world_flag": "метку мира", "counter": "счётчик", "offer": "возможность", "session": "сессию",
                "datetime": "дату и время", "volume": "диск", "mount": "диск машины", "message": "сообщение",
-               "os": "операционную систему", "branches": "ветвление"}
+               "os": "операционную систему", "branches": "ветвление", "data": "данные", "any": "значение"}
 THINGS = ("item", "placement", "layer", "machine", "account", "server", "character", "section", "moment", "player", "flag", "world_flag", "counter", "offer",
           "session", "volume", "mount", "os")
 
@@ -111,7 +111,7 @@ def compatible(src, dst):
 
 def _one(src, dst):
     """Совместимость одиночных типов."""
-    if src == dst:
+    if src == dst or "any" in (src, dst):
         return True
     if dst == "text":
         return True                                  # любое значение подставляется текстом (вещь — своим именем)
@@ -161,6 +161,12 @@ class Grow:
     min: int = 1
     single: tuple = ()
     needs: str = ""             # поле, где должна быть «{», чтобы появилась пустая строка (у «Текста» — подстановки шаблона)
+    ops: tuple = ()             # действие строки (select в строке): (значение, подпись); хранится в строке как "op"
+    mode: str = ""              # поле-режим ноды, от которого зависят valueless и rowless
+    valueless: tuple = ()       # режимы, где у строки только имя
+    rowless: tuple = ()         # режимы без строк
+    value: bool = True          # False — у строки нет входа-значения (только имя)
+    outs: bool = False          # у каждой строки свой выход (id строки, тип «значение»)
 
 
 @dataclass(frozen=True)
@@ -595,10 +601,6 @@ register(Kind("branch_owner", "Ветка: Назначить владельца
     Field("player", "Игрок", "player", "инициатор"), Field("crew", "Группа", "text", "красные", True)),
     (Sock("next", "Дальше"),), when={"player": ("who", ("player",)), "crew": ("who", ("crew",))}))
 register(Kind("branch_unowner", "Ветка: Снять владельца", FLOW, "", (), (Sock("next", "Дальше"),)))
-register(Kind("branch_set", "Ветка: Данные установить", FLOW, "{name}", (
-    Field("name", "Имя", "text", "имя данных", True), Field("value", "Значение", "text")), (Sock("next", "Дальше"),)))
-register(Kind("branch_data", "Ветка: Данные", DATA, "{name}", (Field("name", "Имя", "text", "имя данных", True),), ins=()))
-DATA_OUTS["branch_data"] = (Sock("value", "Значение", "text"), Sock("number", "Число", "number"))
 register(Kind("branch_gate", "Повтор ветвления", FLOW, "{mode}", (
     Field("name", "Название ветвления", "text", "как у «Ветвления»"), Field("branches", "Ветвление", "branches"),
     Field("mode", "Повтор", "switch", "", False, (("open", "Включить"), ("close", "Отключить")))),
@@ -622,9 +624,11 @@ HELP_BRANCH = {
                  "инициаторов — дальше ждущие триггеры слышат только их. «Повторять: Да»: пока первый триггер ветки никто не сделал, ветка ждёт; "
                  "кто сделал, тот её занял, и рядом сразу рождается такая же новая ветка — пока не набралось «Веток всего» и повтор не отключён. "
                  "«На инициатора» — сколько веток может занять один игрок. «Название» (необязательно) — заголовок «Ветвление: Название». Выход «Ветвление» — для «Повтор ветвления» (включить или отключить повтор из любого места).",
-    "branch_set": "Записать данные потока: имя и значение. Данные идут с потоком, видны всем нодам дальше по нему («Ветка: Данные») и копируются в новые ветки. "
-                  "Ветка меняет только свои данные, основной поток их не видит.",
-    "branch_data": "Данные потока по имени: «Значение» (текст) и «Число». Нет такого имени — пусто и 0.",
+    "dict": "Данные: словарь «ключ → значение». Строки: ключ и значение (поле или провод); путь через точку «красные.очки» кладёт данные в данные. Выход «Данные» — "
+            "новый словарь.",
+    "data_set": "Поток или провод «Данные» во входе. Поток: меняет данные самого потока (они идут дальше и копируются в ветки), провод: отдаёт изменённую копию. "
+                "«Изменить»: строки «ключ + значение» с действием (= поставить, + и − к числу, в список, из списка); «Удалить» — ключи; «Очистить» — всё.",
+    "data_get": "Значения ключей из данных потока (или с провода «Данные»): у каждой строки свой выход. Нет ключа — пусто.",
     "branch_head": "Начало ветки «Ветвления»: Поток и Владелец (кому сейчас принадлежит ветка; пусто — никому).",
     "branch_owner": "Назначить владельца ветки: игрок (пусто — инициатор, то есть тот, кто сделал последний триггер) или группа инициаторов. "
                     "Дальше, до «Снять владельца», триггеры ветки слышат только владельца (для группы — любого её члена). Ставьте сразу после первого триггера.",
@@ -1268,6 +1272,16 @@ for _kind, _outs in {
 
 _data("text", "Текст", "{value}", (Field("value", "Текст", "text", "{игрок} открыл {файл}"), Field("subs", "Подстановки", "hidden")), "text", "Текст",
       grow=Grow("subs", "s", "text", named=True, needs="value"))
+_data("dict", "Данные", "", (Field("rows", "Ключи", "hidden"),), "data", "Данные", grow=Grow("rows", "k", "text", named=True))
+DATA_OPS = (("set", "="), ("add", "+"), ("sub", "−"), ("push", "в список"), ("pull", "из списка"))
+register(Kind("data_set", "Данные: Изменить", FLOW, "{mode}", (
+    Field("mode", "Действие", "select", "", False, (("set", "Изменить"), ("delete", "Удалить"), ("clear", "Очистить"))), Field("rows", "Ключи", "hidden")),
+    (Sock("next", "Поток"),), in_types={"in": "event|data"},
+    grow=Grow("rows", "k", "text", named=True, ops=DATA_OPS, mode="mode", valueless=("delete",), rowless=("clear",))))
+DATA_OUTS["data_set"] = (Sock("data", "Данные", "data"),)
+register(Kind("data_get", "Данные: Значение ключа", FLOW, "", (Field("rows", "Ключи", "hidden"),), (Sock("next", "Поток"),),
+              in_types={"in": "event|data"}, grow=Grow("rows", "k", "any", named=True, value=False, outs=True)))
+DATA_OUTS["data_get"] = (Sock("data", "Данные", "data"),)
 _data("number", "Число", "{value}", (Field("value", "Число", "number"),), "number", "Число")
 _data("boolean", "Да/нет", "{value}", (Field("value", "Да", "bool"),), "bool", "Да/нет")
 _data("compare", "Сравнить", "{op}",
@@ -1577,6 +1591,8 @@ def _sock_type(kind, data, side, name, iface=None):
     if kind.name in ("group_in", "group_out"):
         return socket_types(data).get(name, EVENT)
     if side == "out":
+        if kind.grow is not None and kind.grow.outs and is_row(kind, name):
+            return "any"
         if kind.owned and name in ((iface or {}).get("out_types") or {}):
             return iface["out_types"][name]
         if kind.name == USED_OFFER and name.startswith("fork:"):
@@ -1614,6 +1630,8 @@ def sockets(kind, data, side, iface=None):
             names += list((iface or {}).get("outputs") or [])
         names += [sock.name for sock in kind.tail if active(kind, data, sock.name)]
         names += [sock.name for sock in DATA_OUTS.get(kind.name, ()) if _out_on(kind, data, sock.name)]
+        if kind.grow is not None and kind.grow.outs:
+            names += [row["id"] for row in rows(kind, data) if str(row.get("name") or "").strip()]
         if kind.group in NOUNS and not kind.start_only:
             names.append(TIMEOUT)                    # есть только у ждущей ноды (со входом)
     return names
@@ -1732,7 +1750,8 @@ def catalog():
             "tail": [{"name": s.name, "label": s.label, "type": EVENT} for s in k.tail],
             "ref": k.ref[0] if k.ref else "", "start_only": k.start_only, "help": HELP.get(k.name, ""), "title": k.title,
             "grow": {"field": k.grow.field, "prefix": k.grow.prefix, "type": k.grow.type, "named": k.grow.named, "min": k.grow.min,
-                     "single": list(k.grow.single), "needs": k.grow.needs} if k.grow else None,
+                     "single": list(k.grow.single), "needs": k.grow.needs, "ops": [{"value": v, "label": label} for v, label in k.grow.ops], "mode": k.grow.mode,
+                     "valueless": list(k.grow.valueless), "rowless": list(k.grow.rowless), "value": k.grow.value, "outs": k.grow.outs} if k.grow else None,
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},

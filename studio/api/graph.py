@@ -41,6 +41,11 @@ class GrMany(Schema):
     label: str
 
 
+class GrRowOp(Schema):
+    value: str
+    label: str
+
+
 class GrGrow(Schema):
     field: str
     prefix: str
@@ -49,6 +54,12 @@ class GrGrow(Schema):
     min: int
     single: list[str]
     needs: str = ""
+    ops: list[GrRowOp] = []
+    mode: str = ""
+    valueless: list[str] = []
+    rowless: list[str] = []
+    value: bool = True
+    outs: bool = False
 
 
 class GrWhen(Schema):

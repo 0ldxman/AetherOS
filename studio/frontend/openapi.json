@@ -32462,6 +32462,45 @@
       "default": "",
       "title": "Needs",
       "type": "string"
+     },
+     "ops": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/GrRowOp"
+      },
+      "title": "Ops",
+      "type": "array"
+     },
+     "mode": {
+      "default": "",
+      "title": "Mode",
+      "type": "string"
+     },
+     "valueless": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Valueless",
+      "type": "array"
+     },
+     "rowless": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Rowless",
+      "type": "array"
+     },
+     "value": {
+      "default": true,
+      "title": "Value",
+      "type": "boolean"
+     },
+     "outs": {
+      "default": false,
+      "title": "Outs",
+      "type": "boolean"
      }
     },
     "required": [
@@ -32806,6 +32845,24 @@
      "values"
     ],
     "title": "GrPlural",
+    "type": "object"
+   },
+   "GrRowOp": {
+    "properties": {
+     "value": {
+      "title": "Value",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "label"
+    ],
+    "title": "GrRowOp",
     "type": "object"
    },
    "GrSock": {

@@ -3,7 +3,7 @@
   // без провода значение правится прямо на ноде, с проводом приходит по нему. Выбор режима — параметр без входа.
   // Круг — событие и простые значения (да/нет, текст, число), ромб — вещь (файл, машина, персонаж…). Цвет — тип.
   import { Handle, Position, useUpdateNodeInternals } from "@xyflow/svelte";
-  import { BOXES, COLORS, TYPES, isTrigger, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
+  import { BOXES, COLORS, TYPES, isTrigger, followType, inferred, isSet, plainKind, wireOnly, isList, isMany, typeColors, resolveType, typeLabel as labelOfType, inWhen, insOf, isThing, outsOf, propFields, rowsOf, socketFields, titleOf, typeColor, visibleRows, valueless, type Field, type GNode, type Iface, type Kind, type Row } from "./kinds";
 
   type Stat = { hits: number; players: number; waiting: number; oldest_days: number };
   type Option = { value: string; label: string };
@@ -73,6 +73,8 @@
   // растущий список: подстановки шаблона («имя» + значение) или входы «Логики» (A, B, C…)
   const grow = $derived(kind.grow ?? null);
   const growType = $derived(grow ? resolveType(kind, values, grow.type) : "");
+  const noValue = $derived(valueless(kind, values));
+  const keyed = $derived(kind.name === "dict" || kind.name.startsWith("data_"));
   const rows = $derived(visibleRows(kind, values).filter((r) => !hide || data.usedIn.includes(`f:${r.id}`)));
   const letter = (i: number) => (i < 26 ? String.fromCharCode(65 + i) : `${i + 1}`);
   function setRow(row: Row, patch: Partial<Row>) {
@@ -246,13 +248,21 @@
       {@const fed = data.usedIn.includes(key)}
       <div class="row in field" class:used={fed || !row.empty} class:empty={row.empty && !fed}
            data-tip={inTip(key, grow.named ? String(row.name || "подстановка") : letter(i), growType)}>
-        <Handle type="target" position={Position.Left} id={key} class="sock" {...paint(growType)} {...look(growType)} />
+        {#if !noValue}<Handle type="target" position={Position.Left} id={key} class="sock" {...paint(growType)} {...look(growType)} />{/if}
         {#if grow.named}
-          <input class="nodrag inline name mono" value={String(row.name ?? "")} placeholder="имя" disabled={!data.editable} aria-label="Имя подстановки"
+          <input class="nodrag inline name mono" value={String(row.name ?? "")} placeholder={keyed ? "ключ" : "имя"} disabled={!data.editable} aria-label={keyed ? "Ключ" : "Имя подстановки"}
                  oninput={(e) => setRow(row, { name: e.currentTarget.value.replace(/[{}]/g, "") || undefined })} />
-          {#if !fed}
-            <input class="nodrag inline" value={row.value === undefined || row.value === null ? "" : String(row.value)} placeholder="значение"
-                   disabled={!data.editable} aria-label="Значение подстановки" oninput={(e) => setRow(row, { value: e.currentTarget.value || undefined })} />
+          {#if !noValue}
+            {#if grow.ops.length}
+              <select class="nodrag inline op" value={String(row.op ?? grow.ops[0].value)} disabled={!data.editable} aria-label="Действие"
+                      onchange={(e) => setRow(row, { op: e.currentTarget.value === grow.ops[0].value ? undefined : e.currentTarget.value })}>
+                {#each grow.ops as o (o.value)}<option value={o.value}>{o.label}</option>{/each}
+              </select>
+            {/if}
+            {#if !fed}
+              <input class="nodrag inline" value={row.value === undefined || row.value === null ? "" : String(row.value)} placeholder="значение"
+                     disabled={!data.editable} aria-label="Значение" oninput={(e) => setRow(row, { value: e.currentTarget.value || undefined })} />
+            {/if}
           {/if}
         {:else}
           <span class="label">{letter(i)}</span>
@@ -324,6 +334,7 @@
   .switch-label { color: var(--faint); font-size: 11px; white-space: nowrap; }
   .switch { display: flex; min-width: 0; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--bg); }
   .switch.grow { flex: 1; }
+  .op { flex: none; width: 74px; }
   .switch button { flex: 1 1 auto; min-width: 0; height: 19px; padding: 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
   .switch button + button { border-left: 1px solid var(--line); }

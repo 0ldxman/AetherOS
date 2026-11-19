@@ -221,15 +221,28 @@ class GateByNameTests(BranchingBase):
         self.assertTrue(any(p["level"] == "error" and "Название ветвления" in p["text"] for p in check.problems(doc)))
 
 
+def rows(*items):
+    """Строки «Данных»: ("ключ", значение[, действие]) -> k1, k2…"""
+    return [{"id": f"k{i}", "name": key, "value": rest[0] if rest else None, **({"op": rest[1]} if len(rest) > 1 else {})}
+            for i, (key, *rest) in enumerate(items, 1)]
+
+
+def put(i, *items, mode="set"):
+    return node(i, "data_set", mode=mode, rows=rows(*items))
+
+
+def read(i, *keys):
+    return node(i, "data_get", rows=[{"id": f"k{n}", "name": key} for n, key in enumerate(keys, 1)])
+
+
 class FlowDataTests(BranchingBase):
-    """«Ветка: Данные установить» и «Ветка: Данные»: данные идут с потоком и копируются в новые ветки."""
+    """«Данные: Изменить» и «Данные: Значение ключа»: данные идут с потоком и копируются в новые ветки."""
 
     def doc_data(self, repeat="no"):
-        inner = [node("h", "branch_head"), node("t1", "on:terminal.command", command="go"), node("dd", "branch_data", name="color"),
+        inner = [node("h", "branch_head"), node("t1", "on:terminal.command", command="go"), read("dd", "color"),
                  node("c", "do:world_count", name="x"), node("o", "branch_out")]
-        wires = [wire("h", "next", "t1"), wire("t1", "run", "c"), wire("dd", "value", "c", "f:name"), wire("c", "next", "o")]
-        return {"nodes": [node("m", "manual"), node("s", "branch_set", name="color", value="red"),
-                          node("b", "branching", group="g1", repeat=repeat, per=1)],
+        wires = [wire("h", "next", "t1"), wire("t1", "run", "c"), wire("dd", "k1", "c", "f:name"), wire("c", "next", "o")]
+        return {"nodes": [node("m", "manual"), put("s", ("color", "red")), node("b", "branching", group="g1", repeat=repeat, per=1)],
                 "wires": [wire("m", "fire", "s"), wire("s", "next", "b")], "groups": {"g1": {"title": "Ветвление", "nodes": inner, "wires": wires}}}
 
     def test_branch_reads_data_set_before_branching(self):
@@ -247,12 +260,69 @@ class FlowDataTests(BranchingBase):
 
     def test_branch_data_is_its_own(self):
         doc = self.doc_data()
-        doc["groups"]["g1"]["nodes"].append(node("ch", "branch_set", name="color", value="green"))
+        doc["groups"]["g1"]["nodes"].append(put("ch", ("color", "green")))
         g = doc["groups"]["g1"]
-        g["wires"] = [wire("h", "next", "t1"), wire("t1", "run", "ch"), wire("ch", "next", "c"), wire("dd", "value", "c", "f:name"), wire("c", "next", "o")]
+        g["wires"] = [wire("h", "next", "t1"), wire("t1", "run", "ch"), wire("ch", "next", "c"), wire("dd", "k1", "c", "f:name"), wire("c", "next", "o")]
         start_manual(self.graph(doc), "m", self.boris)
         self.cmd(self.ivan, "go")
         self.assertEqual((count("green"), count("red")), (1, 0))
+
+
+class DataNodesTests(BranchingBase):
+    """«Данные», «Данные: Изменить» (изменить, удалить, очистить) и «Данные: Значение ключа» в одном потоке и по проводу."""
+
+    def run_flow(self, *middle, keys=("a",), name_from="k1"):
+        """manual → middle… → счётчик с именем из значения ключа."""
+        nodes = [node("m", "manual"), *middle, read("g", *keys), node("c", "do:world_count", name="x")]
+        chain = ["m", *[n["id"] for n in middle], "c"]
+        wires = [wire(chain[i], "fire" if i == 0 else "next", chain[i + 1]) for i in range(len(chain) - 1)]
+        wires.append(wire("g", name_from, "c", "f:name"))
+        graph = self.graph({"nodes": nodes, "wires": wires})
+        self.assertEqual(self.errors(graph), [])
+        start_manual(graph, "m", self.ivan)
+        return graph
+
+    def test_set_and_nested_path(self):
+        self.run_flow(put("s", ("a.b", "deep")), keys=("a.b",))
+        self.assertEqual(count("deep"), 1)
+
+    def test_number_operations(self):
+        graph = self.run_flow(put("s1", ("n", "5")), put("s2", ("n", "3", "add")), put("s3", ("n", "2", "sub")), keys=("n",))
+        self.assertEqual(Run.objects.get(graph=graph).state["data"], {"n": 6})
+
+    def test_list_push_and_pull(self):
+        graph = self.run_flow(put("s1", ("l", "x", "push")), put("s2", ("l", "y", "push")), put("s3", ("l", "x", "pull")), keys=("l",))
+        self.assertEqual(Run.objects.get(graph=graph).state["data"], {"l": ["y"]})
+
+    def test_delete(self):
+        graph = self.run_flow(put("s", ("a", "1"), ("b", "2")), put("d", ("a",), mode="delete"))
+        self.assertEqual(Run.objects.get(graph=graph).state["data"], {"b": "2"})
+
+    def test_clear(self):
+        graph = self.run_flow(put("s", ("a", "1")), put("z", mode="clear"))
+        self.assertEqual(Run.objects.get(graph=graph).state["data"], {})
+
+    def test_wired_dict_is_a_pure_copy(self):
+        """Провод «Данные» не трогает данные потока: изменённая копия идёт дальше по проводу."""
+        nodes = [node("m", "manual"), node("d", "dict", rows=rows(("a", "one"))), put("p", ("b", "two")), read("g", "a", "b"), node("c", "do:world_count", name="x")]
+        wires = [wire("m", "fire", "c"), wire("d", "value", "p", "in"), wire("p", "data", "g", "in"), wire("g", "k2", "c", "f:name")]
+        graph = self.graph({"nodes": nodes, "wires": wires})
+        self.assertEqual(self.errors(graph), [])
+        start_manual(graph, "m", self.ivan)
+        self.assertEqual(count("two"), 1)
+        self.assertEqual(Run.objects.get(graph=graph).state.get("data") or {}, {})
+
+    def test_wired_value_into_row(self):
+        nodes = [node("m", "manual"), node("t", "text", value="hello"), put("s", ("a", None)), read("g", "a"), node("c", "do:world_count", name="x")]
+        nodes[2]["data"]["rows"][0]["id"] = "k1"
+        wires = [wire("m", "fire", "s"), wire("t", "value", "s", "f:k1"), wire("s", "next", "c"), wire("g", "k1", "c", "f:name")]
+        graph = self.graph({"nodes": nodes, "wires": wires})
+        start_manual(graph, "m", self.ivan)
+        self.assertEqual(count("hello"), 1)
+
+    def test_missing_key_is_empty(self):
+        self.run_flow(put("s", ("a", "1")), keys=("nothing",))
+        self.assertEqual(count(""), 0)
 
 
 class StartOnceTests(BranchingBase):
