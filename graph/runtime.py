@@ -925,8 +925,8 @@ def _inferred(doc, node_id, kind, data):
 def _noun_wait(run, doc, node_id, kind):
     data = resolved(run, doc, node_id)
     outs = [out for out in doc.wired(node_id) if N.event_of(kind, out)]
-    own = data.get("own") in (True, "player", "true")
-    if data.get("past") and (run.user is not None or not own):
+    own = data.get("own") in (True, "player", "true") and kind.name != "signal"
+    if data.get("past") and kind.name != "signal" and (run.user is not None or not own):
         from engine.models import Event
 
         past = Event.objects.filter(name__in={N.event_of(kind, out) for out in outs})
@@ -1392,8 +1392,9 @@ def _execute(run, doc, node_id, sock):
     if name == "send_signal":
         from engine.events import emit
 
-        everyone = data.get("to") == "all"
-        emit(N.SIGNAL_EVENT, None if everyone else run.user, source=f"сценарий {run.graph.slug}", signal=str(data.get("name") or ""), all=everyone)
+        payload = data.get("payload") if isinstance(data.get("payload"), dict) else (run.state or {}).get("data") or {}
+        emit(N.SIGNAL_EVENT, run.user, source=f"сценарий {run.graph.slug}", signal=str(data.get("name") or ""), scope=data.get("scope") or "scenario",
+             graph=run.graph_id, run=run.id, sender=run.user.get_username() if run.user is not None else "", payload=_clean(payload))
         return ["next"]
     if name == "launch":
         return [_launch(run, data)]
@@ -1796,11 +1797,19 @@ def dispatch(event):
     touched = 0
     try:
         waits = Wait.objects.filter(kind=Wait.Kind.EVENT, event=event.name, run__status=Run.Status.RUNNING, run__graph__active=True)
-        if event.user is not None and event.name not in N.GLOBAL_EVENTS and not (event.data or {}).get("shared"):
-            waits = waits.filter(Q(user=event.user) | Q(anyone=True))
-        if event.user is not None:                                   # поток с владельцем двигает только владелец (игрок или группа)
-            waits = waits.filter(Q(run__owner__isnull=True, run__crew__isnull=True) | Q(run__owner=event.user)
-                                 | Q(run__crew__members=event.user)).distinct()
+        signal = event.name == N.SIGNAL_EVENT
+        scope = (event.data or {}).get("scope") or "world"
+        if signal:                                                   # сигнал — сообщение между потоками: его адресует область, а не игрок и не владелец ветки
+            if scope == "branch":
+                waits = waits.filter(run_id=(event.data or {}).get("run"))
+            elif scope == "scenario":
+                waits = waits.filter(run__graph_id=(event.data or {}).get("graph"))
+        else:
+            if event.user is not None and event.name not in N.GLOBAL_EVENTS and not (event.data or {}).get("shared"):
+                waits = waits.filter(Q(user=event.user) | Q(anyone=True))
+            if event.user is not None:                               # поток с владельцем двигает только владелец (игрок или группа)
+                waits = waits.filter(Q(run__owner__isnull=True, run__crew__isnull=True) | Q(run__owner=event.user)
+                                     | Q(run__crew__members=event.user)).distinct()
         # событие без игрока (сигнал всем, метка мира, момент, машина) будит ждущих у всех
         for wait in list(waits.select_related("run__graph")):
             doc = doc_of(wait.run.graph)
@@ -1819,7 +1828,10 @@ def dispatch(event):
                                                  run__graph__active=True).select_related("run__graph")):
                 if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
                     touched += bool(resume(wait))
-        for row in list(Start.objects.filter(event=event.name, graph__active=True).select_related("graph")):
+        starts = Start.objects.filter(event=event.name, graph__active=True)
+        if signal:                                                   # у старта нет ветки: «Эта ветка» ему не адресуется
+            starts = starts.none() if scope == "branch" else starts.filter(graph_id=(event.data or {}).get("graph")) if scope == "scenario" else starts
+        for row in list(starts.select_related("graph")):
             doc = doc_of(row.graph)
             kind = doc.kind(row.node)
             data = doc.data(row.node)

@@ -74,7 +74,7 @@ FIELD_TYPES = {"text": "text", "textarea": "text", "path": "text", "clock": "tex
                "counter": "counter", "moment": "moment", "machine": "machine", "system": "os", "time_zone": "text", "server": "server", "player": "player", "layer": "layer", "placement": "placement", "account": "account", "offer": "offer",
                "recipient": "many:character|text", "mail_ref": "item|placement", "attachment": "many:item|placement",
                "offer_group": "many:offer|text", "session": "session", "datetime": "datetime|text", "volume": "volume", "mount": "mount",
-               "message": "message", "branches": "branches"}      # вид поля -> тип его входа; нет в списке — параметр без входа
+               "message": "message", "branches": "branches", "data": "data"}      # вид поля -> тип его входа; нет в списке — параметр без входа
 
 
 def field_type(field):
@@ -126,6 +126,7 @@ BOXES = ("group", "scenario")
 GLOBAL_EVENTS = frozenset({"world.flag", "world.counter", "moment.started", "moment.ended", "machine.stopped", "machine.started",
                            "machine.maintenance.started", "machine.maintenance.ended"})   # будят всех ждущих            # ноды-обёртки: сокеты берутся из их «Входа» и «Выхода»
 SIGNAL_EVENT = "signal"
+SIGNAL_SCOPES = (("scenario", "Этот сценарий"), ("branch", "Эта ветка"), ("world", "Мир"))      # кому доходит сигнал
 REF = "ref"
 TIMEOUT = "timeout"
 TIME_EVENT, MANUAL_EVENT = "@time", "@manual"
@@ -193,6 +194,7 @@ class Kind:
     typed: str = ""                     # поле-параметр «Тип элементов»: им заменяются @T и @list в типах сокетов
     covers: dict = field(default_factory=dict)     # поле -> поля, которые прячутся, когда в него идёт провод (провод их заменяет)
     follows: dict = field(default_factory=dict)    # выход «одно или список» -> поле, чью кратность он повторяет
+    wait_skip: tuple = ()               # общие поля ожидания триггера, которых у этой ноды нет («Ждать от», «Засчитать, если уже было»)
     titled: dict = field(default_factory=dict)     # поле -> заголовок ноды, когда поле задано (провод или значение)
     infers: dict = field(default_factory=dict)     # поле-провод -> (поле-режим, {тип провода: (значение режима, поле, куда положить значение)})
     hidden: bool = False                # старая нода: работает в готовых сценариях, но в меню её нет
@@ -257,8 +259,8 @@ def _signal(data, out, event):
 
 register(Kind("manual", "Запуск вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
               (Sock("fire", "Запустили"),), events={"fire": MANUAL_EVENT}, start_only=True))
-register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Сигнал", "text", "bunker-open", True),),
-              (Sock("got", "Пришёл"),), events={"got": SIGNAL_EVENT}, match=_signal))
+register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Название", "text", "bunker-open", True),),
+              (Sock("got", "Получен"),), events={"got": SIGNAL_EVENT}, match=_signal, wait_skip=("past", "own")))
 
 
 # ---------- когда: события по пространствам («Машина: Статус изменён») ----------
@@ -664,10 +666,10 @@ register(Kind("scenario", "Сценарий", STRUCT, "{graph}", (Field("graph",
 register(Kind("launch", "Запустить сценарий", STRUCT, "{graph}",
               (Field("graph", "Сценарий", "graph", "", True), Field("socket", "Вход сценария", "text", "первый")),
               (Sock("next", "Дальше"), Sock("fail", "Не вышло"))))
-register(Kind("send_signal", "Послать сигнал", STRUCT, "{name} → {to}",
-              (Field("name", "Сигнал", "text", "bunker-open", True),
-               Field("to", "Кому", "select", "", False, (("player", "этому игроку"), ("all", "всем")))),
-              (Sock("next", "Дальше"),)))
+register(Kind("send_signal", "Послать сигнал", STRUCT, "{name}",
+              (Field("name", "Название", "text", "bunker-open", True),
+               Field("scope", "Куда", "select", "", False, SIGNAL_SCOPES), Field("payload", "Данные", "data")),
+              (Sock("next", "Поток"),)))
 
 
 # ---------- служебные ----------
@@ -1095,7 +1097,8 @@ HELP = {
     "on:count.threshold": "Счётчик перешёл порог: «Дошёл» — снизу вверх, «Ушёл ниже» — сверху вниз.",
     "on:time": "Один раз в игровую дату и время. Ход мировой — без инициатора.",
     "on:schedule": "По игровому времени: каждый день в ЧЧ:ММ, по дням недели или каждые N минут. Ход мировой — без инициатора.",
-    "signal": "Сигнал от «Послать сигнал» с тем же именем: связывает сценарии без проводов.",
+    "signal": "Сигнал от «Послать сигнал» с тем же названием. Без провода во «Ждать с» — старт (слышит «Этот сценарий» и «Мир»), с проводом — ждёт сигнала посреди потока. "
+              "Выходы: «Игрок» (кто послал) и «Данные» (копия того, что передали).",
     "join": "Слияние: пути одного потока (из одного выхода в несколько входов) сходятся в один. Все — дальше, когда пришли все подключённые входы, в любом порядке; "
             "Любой — по первому, остальные ожидания, ведущие сюда, снимаются («ответ или 30 минут»: триггер и «Ждать 30 минут» в два входа); "
             "По количеству — когда пришло «Сколько нужно» входов. Входы растут сами: подключили последний — появился следующий. Выход «Вход» — номер входа, "
@@ -1119,7 +1122,8 @@ HELP = {
     "group_out": "Выход группы или сценария: сокеты справа у ноды группы.",
     "scenario": "Другой сценарий целиком, как группа. Идёт в ходах этого сценария; его старты здесь не срабатывают.",
     "launch": "Запустить другой сценарий: новый ход с игроком этого хода, не дожидаясь его.",
-    "send_signal": "Послать сигнал: будит ноды «Сигнал» с тем же именем — с инициатором или у всех.",
+    "send_signal": "Послать сигнал: будит ноды «Сигнал» с тем же названием. «Куда»: «Этот сценарий» — все потоки сценария, «Эта ветка» — только ждущие этого же потока, «Мир» — любой сценарий. "
+                    "«Данные» (необязательно) уходят вместе с сигналом, без провода — данные потока. Сигнал нигде не хранится: его слышат только те, кто уже ждёт.",
     "stage": "Отметка хода: счётчик «прошли» на холсте.",
     "note": "Заметка на холсте. Не исполняется.",
     "frame": "Рамка вокруг нод. Не исполняется.",
@@ -1268,7 +1272,6 @@ def _data(name, label, summary, fields, out_type, out_label="Значение", 
 
 _P = ("@player",)
 for _kind, _outs in {
-    "signal": (),
     "manual": (),
 }.items():
     DATA_OUTS[_kind] = _outs + (Sock("player", "Игрок", "player", "@player"),)
@@ -1663,6 +1666,7 @@ for _name in ("manual", "signal", "on:machine.status", "on:moment.status", "on:t
     KINDS[_name] = replace(KINDS[_name], group=HAPPEN)
     DATA_OUTS[_name] = tuple(sock for sock in DATA_OUTS.get(_name, ()) if sock.name != "player")      # игрок их не вызывает: выхода «Игрок» нет
 DATA_OUTS["manual"] = (Sock("author", "Автор", "text", "author"),)          # кто из авторов нажал кнопку
+DATA_OUTS["signal"] = (Sock("player", "Игрок", "player", "sender"), Sock("data", "Данные", "data", "payload"))      # кто послал и что передал
 
 
 def _menu_order(kind):
@@ -1765,7 +1769,7 @@ def catalog():
             "when": [{"field": name, "mode": mode, "values": list(values)} for name, rule in k.when.items()
                      for mode, values in ([rule] if isinstance(rule[0], str) else rule)],
             "hidden": k.hidden, "owned": k.owned, "typed": k.typed, "covers": {name: list(hid) for name, hid in k.covers.items()},
-            "follows": dict(k.follows), "titled": dict(k.titled),
+            "follows": dict(k.follows), "titled": dict(k.titled), "wait_skip": list(k.wait_skip),
             "inline": {name: {"switch": switch, "drop": list(drop)} for name, (switch, drop) in k.inline.items()},
             "plural": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.plural.items()},
             "outs_when": {name: {"mode": mode, "values": list(values)} for name, (mode, values) in k.outs_when.items()},

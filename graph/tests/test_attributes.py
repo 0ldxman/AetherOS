@@ -204,8 +204,9 @@ class EventsTests(TestCase):
 
 class EventOutsTests(TestCase):
     def test_events_have_no_player_and_manual_has_author(self):
-        for name in ("signal", "on:time", "on:tag", "on:machine.status", "on:air.station", "on:layer.added"):
+        for name in ("on:time", "on:tag", "on:machine.status", "on:air.station", "on:layer.added"):
             self.assertNotIn("player", [s.name for s in N.DATA_OUTS[name]], name)
+        self.assertEqual([s.name for s in N.DATA_OUTS["signal"]], ["player", "data"])            # у сигнала «Игрок» — кто послал, и «Данные»
         self.assertIn("player", [s.name for s in N.DATA_OUTS["on:air.sent"]])
         self.assertEqual([s.name for s in N.DATA_OUTS["manual"]], ["author"])
         boss = get_user_model().objects.create_user("boss", is_staff=True)

@@ -32661,6 +32661,14 @@
       "title": "Title",
       "type": "string"
      },
+     "wait_skip": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Wait Skip",
+      "type": "array"
+     },
      "grow": {
       "anyOf": [
        {

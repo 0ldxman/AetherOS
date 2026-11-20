@@ -105,6 +105,7 @@ class GrKind(Schema):
     start_only: bool
     help: str
     title: str = ""
+    wait_skip: list[str] = []
     grow: GrGrow | None = None
     when: list[GrWhen] = []
     hidden: bool = False

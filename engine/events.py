@@ -72,7 +72,7 @@ FIELDS = {                                  # какие подробности 
     "flag.set": ("flag",),
     "flag.unset": ("flag",),
     "character.wrote": ("character", "channel", "text", "subject", "sender", "message"),
-    "signal": ("signal", "all"),
+    "signal": ("signal", "scope"),
     "machine.stopped": (),
     "machine.started": (),
     "machine.maintenance.started": (),

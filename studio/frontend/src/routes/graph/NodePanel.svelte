@@ -18,7 +18,7 @@
   const LISTED = ["flag", "world_flag", "counter"];
   // поле со встроенным переключателем: без провода в панели только если текстом его не задать («Как» — только провод письма)
   const typed = (f: Field) => (f.socket ?? "").split(/[:|]/).includes("text");
-  const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(isTrigger(kind) && !kind.start_only ? (waiting ? catalog.wait_fields : []) : [])]);
+  const fields = $derived([...kind.fields.filter((f) => !wireOnly(f.kind)).map((f) => ({ ...f, kind: plainKind(f.kind) })), ...(isTrigger(kind) && !kind.start_only ? (waiting ? catalog.wait_fields.filter((f) => !kind.wait_skip.includes(f.name)) : []) : [])]);
   const data = $derived(node.data);
   const value = (name: string) => (data[name] === undefined || data[name] === null ? "" : String(data[name]));
   const set = (name: string, v: unknown) => onchange({ data: { ...data, [name]: v === "" ? undefined : v } });

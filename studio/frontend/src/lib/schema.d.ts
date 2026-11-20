@@ -12043,6 +12043,11 @@ export interface components {
              * @default
              */
             title: string;
+            /**
+             * Wait Skip
+             * @default []
+             */
+            wait_skip: string[];
             grow?: components["schemas"]["GrGrow"] | null;
             /**
              * When

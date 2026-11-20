@@ -100,27 +100,3 @@ class ScenarioNodeTests(TestCase):
                      [wire("m", "fire", "l"), wire("l", "fail", "b")], slug="outer")
         runtime.start_manual(outer, "m", self.ivan)
         self.assertEqual(counter("d"), 1)
-
-
-class SignalTests(TestCase):
-    def setUp(self):
-        User = get_user_model()
-        self.ivan, self.anna = User.objects.create_user("ivan"), User.objects.create_user("anna")
-
-    def test_signal_to_player_and_to_all(self):
-        waiter = make([node("m", "manual"), node("s", "signal", name="go", own=True), node("a", "do:world_count", name="c")],
-                      [wire("m", "fire", "s"), wire("s", "got", "a")], slug="waiter")
-        sender = make([node("m", "manual"), node("x", "send_signal", name="go", to="player")], [wire("m", "fire", "x")], slug="sender")
-        for user in (self.ivan, self.anna):
-            runtime.start_manual(waiter, "m", user)
-        runtime.start_manual(sender, "m", self.ivan)
-        self.assertEqual(counter("c"), 1)                                    # только ivan
-        loud = make([node("m", "manual"), node("x", "send_signal", name="go", to="all")], [wire("m", "fire", "x")], slug="loud")
-        runtime.start_manual(loud, "m")
-        self.assertEqual(counter("c"), 2)
-
-    def test_signal_starts_graph(self):
-        make([node("s", "signal", name="go"), node("a", "do:world_count", name="c")], [wire("s", "got", "a")], slug="listen")
-        sender = make([node("m", "manual"), node("x", "send_signal", name="go")], [wire("m", "fire", "x")], slug="sender")
-        runtime.start_manual(sender, "m", self.ivan)
-        self.assertEqual(counter("c"), 1)

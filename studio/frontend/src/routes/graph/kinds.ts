@@ -77,7 +77,7 @@ export function resolveType(kind: Kind, data: Record<string, unknown>, type: str
 
 // вид поля без кратности: «many:object» -> «object»; поле нескольких типов («player|machine») — только провод, без редактора
 export const plainKind = (kind: string) => (kind.startsWith("many:") ? kind.slice(5) : kind);
-export const wireOnly = (kind: string) => plainKind(kind).includes("|");
+export const wireOnly = (kind: string) => plainKind(kind).includes("|") || kind === "data";
 
 // тип провода задаёт поля ноды (kind.infers): машина в «Владелец» — владелец «машина»
 export function inferred(kind: Kind, data: Record<string, unknown>, fed: Record<string, string>): Record<string, unknown> {
