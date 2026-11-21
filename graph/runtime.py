@@ -1504,6 +1504,16 @@ def _execute(run, doc, node_id, sock):
         _set_vars(run, doc, node_id, doc.data(node_id))
         _wake_conditions(run)
         return ["next"]
+    if name in ("scenario_reset", "branch_restart"):
+        condition = data.get("condition")
+        if condition not in (None, "") and not _holds(condition, run):
+            return ["next"]
+        if name == "scenario_reset":
+            reset_scenario(run.graph, keep_vars=bool(data.get("keep_vars")), keep_crews=bool(data.get("keep_crews")), except_run=run)
+            run.state = {**(run.state or {}), "reset": True}
+            _finish(run, "reset")
+            return []
+        return _restart_branch(run, doc)
     if name == "branch_owner":
         return _owner(run, doc, data)
     if name == "branch_unowner":
@@ -1605,7 +1615,58 @@ def _branching(run, doc, node_id, queue):
     if doc.data(node_id).get("repeat") == "yes":
         _open_vacancy(run.graph, doc, node_id, run, flow_data)
     else:
+        from graph.models import Branching
+
+        spawn, _ = Branching.objects.get_or_create(graph=run.graph, node=node_id)
+        if spawn.base != flow_data:
+            spawn.base = flow_data                                   # с него начнётся ветка, если её перезапустят
+            spawn.save(update_fields=["base"])
         _branch(run.graph, doc, node_id, start_at, run, data=flow_data)
+
+
+def _restart_branch(run, doc):
+    """«Ветка: Начать заново»: место освобождается, ветка рождается заново с данными на входе в «Ветвление»; этот поток заканчивается."""
+    from graph.models import Branching
+
+    fork = (run.state or {}).get("fork")
+    if not fork:
+        _log(run.graph, "«Ветка: Начать заново» вне ветки «Ветвления»", run.user)
+        return ["next"]
+    start_at = _head_of(doc, fork)
+    with transaction.atomic():
+        spawn, _ = Branching.objects.select_for_update().get_or_create(graph=run.graph, node=fork)
+        if not (run.state or {}).get("vacancy"):                     # ветка была занята: место и «на инициатора» возвращаются
+            spawn.taken = max(0, spawn.taken - 1)
+            if run.user_id is not None and str(run.user_id) in (spawn.users or {}):
+                spawn.users = {**spawn.users, str(run.user_id): max(0, int(spawn.users[str(run.user_id)]) - 1)}
+            spawn.save(update_fields=["taken", "users"])
+        base = dict(spawn.base or {})
+    _finish(run, "restarted")
+    if start_at is not None:
+        if doc.data(fork).get("repeat") == "yes":
+            _open_vacancy(run.graph, doc, fork, data=base)
+        else:
+            _branch(run.graph, doc, fork, start_at, None, data=base)
+    return []
+
+
+def reset_scenario(graph, keep_vars=False, keep_crews=False, except_run=None):
+    """Сценарий заново: потоки (с ожиданиями и проходами), ветвления, счёт «По очереди», переменные и группы. Мир (теги, счётчики, письма) не трогается."""
+    from graph.models import Branching, Crew, Shared
+
+    doc = doc_of(graph)
+    turns = [node_id for node_id in doc.nodes if getattr(doc.kind(node_id), "name", "") == "turns"]
+    with transaction.atomic():
+        runs = Run.objects.filter(graph=graph)
+        if except_run is not None:
+            runs = runs.exclude(pk=except_run.pk)
+        runs.delete()
+        Branching.objects.filter(graph=graph).delete()
+        Mark.objects.filter(graph=graph, node__in=turns).delete()
+        if not keep_vars:
+            Shared.objects.filter(graph=graph).delete()
+        if not keep_crews:
+            Crew.objects.filter(graph=graph).delete()
 
 
 def _vacancy_accepts(wait, event):
@@ -1727,6 +1788,8 @@ def advance(run, items):
     if run.status == Run.Status.RUNNING and not Wait.objects.filter(run=run).exists():
         _finish(run, run.outcome or "")
     run.save(update_fields=["status", "outcome", "ended_at", "ctx", "state", "owner", "crew"])
+    if (run.state or {}).get("reset"):
+        Run.objects.filter(pk=run.pk).delete()                       # «Сценарий: Начать заново»: и сам поток стирается, чтобы его старт сработал снова
     return run
 
 
