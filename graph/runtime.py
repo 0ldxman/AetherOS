@@ -1572,7 +1572,7 @@ def _head_of(doc, node_id):
 def _branch(graph, doc, node_id, start_at, parent=None, vacancy=False, data=None):
     """Новая ветка «Ветвления»: свободная (без владельца), идёт от «Начала ветки» до первого ожидания. Данные потока копируются."""
     child = Run.objects.create(graph=graph, user=None, node=start_at, ctx={}, parent=parent,
-                               state={"vals": {}, "fork": node_id, "data": dict(data or {}), **({"vacancy": True} if vacancy else {})})
+                               state={"vals": {}, "fork": node_id, "data": dict(data or {}), "base": dict(data or {}), **({"vacancy": True} if vacancy else {})})
     child.graph = graph
     _hit(child, start_at)
     advance(child, doc.next(start_at, "next"))
@@ -1615,12 +1615,6 @@ def _branching(run, doc, node_id, queue):
     if doc.data(node_id).get("repeat") == "yes":
         _open_vacancy(run.graph, doc, node_id, run, flow_data)
     else:
-        from graph.models import Branching
-
-        spawn, _ = Branching.objects.get_or_create(graph=run.graph, node=node_id)
-        if spawn.base != flow_data:
-            spawn.base = flow_data                                   # с него начнётся ветка, если её перезапустят
-            spawn.save(update_fields=["base"])
         _branch(run.graph, doc, node_id, start_at, run, data=flow_data)
 
 
@@ -1640,7 +1634,7 @@ def _restart_branch(run, doc):
             if run.user_id is not None and str(run.user_id) in (spawn.users or {}):
                 spawn.users = {**spawn.users, str(run.user_id): max(0, int(spawn.users[str(run.user_id)]) - 1)}
             spawn.save(update_fields=["taken", "users"])
-        base = dict(spawn.base or {})
+        base = dict((run.state or {}).get("base") or spawn.base or {})          # данные на входе в «Ветвление»
     _finish(run, "restarted")
     if start_at is not None:
         if doc.data(fork).get("repeat") == "yes":
