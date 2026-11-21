@@ -596,6 +596,13 @@ def _items_dict(run, doc, node_id, depth=0):
     return out
 
 
+def _merge(base, extra):
+    """Ключи из extra поверх base; вложенные данные сливаются, остальное заменяется."""
+    for key, value in extra.items():
+        base[key] = _merge(base[key], value) if isinstance(value, dict) and isinstance(base.get(key), dict) else value
+    return base
+
+
 def _apply(out, key, op, value):
     """Действие над ключом словаря: поставить, прибавить / вычесть, в список, из списка."""
     now = _dig(out, key)
@@ -617,6 +624,9 @@ def _changed(run, doc, node_id, depth=0):
     if mode == "clear":
         return {}
     out = _base(run, doc, node_id, depth)
+    if mode == "merge":
+        source = input_of(run, doc, node_id, "source", depth + 1)
+        return _merge(out, _clean(source)) if isinstance(source, dict) else out
     for row in N.rows(kind, data):
         key = str(row.get("name") or "").strip()
         if not key:
@@ -1471,7 +1481,7 @@ def _execute(run, doc, node_id, sock):
         return [f"b{random.choices(range(1, len(weights) + 1), weights=weights)[0]}"]
     if name == "turns":
         with transaction.atomic():
-            mark = _mark(run, node_id)
+            mark = _mark(run, node_id, run.user if data.get("scope") == "player" else None)       # «Инициатор»: у каждого игрока свой счёт
             if data.get("cycle") == "stop" and mark.value >= _count(data, "count"):
                 return ["over"]                     # все ветки пройдены, по кругу не идём
             number = mark.value % _count(data, "count") + 1

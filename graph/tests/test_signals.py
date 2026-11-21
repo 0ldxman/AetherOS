@@ -135,3 +135,21 @@ class SafeScenarioTests(BranchingBase):
         self.cmd(self.ivan, "unlock")
         self.cmd(self.ivan, "unlock")
         self.assertEqual(Shared.objects.get(graph=graph).data["keys"], 1)
+
+
+class MergeTests(TestCase):
+    def setUp(self):
+        users = get_user_model().objects
+        self.ivan, self.anna = users.create_user("ivan"), users.create_user("anna")
+
+    def test_merge_signal_data_into_flow_data(self):
+        """«Слить»: данные из сигнала переходят в данные потока получателя (в том числе вложенные)."""
+        waiter = make([node("m", "manual"), node("s", "signal", name="go"), node("g", "data_set", mode="merge"), node("r", "data_get", rows=[{"id": "k1", "name": "team.color"}]),
+                       node("a", "do:world_count", name="x")],
+                      [wire("m", "fire", "s"), wire("s", "got", "g"), wire("s", "data", "g", "f:source"), wire("g", "next", "a"), wire("r", "k1", "a", "f:name")], slug="waiter")
+        start_manual(waiter, "m", self.ivan)
+        sender = make([node("m", "manual"), node("d", "dict", rows=rows(("team.color", "red"), ("team.size", "3"))), send("x", scope="world")],
+                      [wire("m", "fire", "x"), wire("d", "value", "x", "f:payload")], slug="sender")
+        start_manual(sender, "m", self.anna)
+        self.assertEqual(count("red"), 1)
+        self.assertEqual(Run.objects.get(graph=waiter).state["data"], {"team": {"color": "red", "size": "3"}})
