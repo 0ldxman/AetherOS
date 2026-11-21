@@ -1,4 +1,5 @@
 """«Переменная: Значение» и «Переменная: Изменить»: общие переменные сценария."""
+from graph import check
 from graph.models import Shared
 from graph.runtime import start_manual
 from graph.tests.test_branching import BranchingBase, count, rows
@@ -60,3 +61,53 @@ class VariableTests(BranchingBase):
     def test_missing_is_empty(self):
         self.play(setv("s", ("a", "1")), keys=("nothing",))
         self.assertEqual(count(""), 0)
+
+
+class VariableConditionTests(BranchingBase):
+    """Условия «var:имя>=3», «var:имя=текст» в «Если» и «Ждать условие»."""
+
+    def branch(self, condition, *writes):
+        """manual → записи… → «Если» → счётчики yes / no."""
+        nodes = [node("m", "manual"), *writes, node("c", "check", condition=condition), node("y", "do:world_count", name="yes"), node("n", "do:world_count", name="no")]
+        chain = ["m", *[w["id"] for w in writes], "c"]
+        wires = [wire(chain[i], "fire" if i == 0 else "next", chain[i + 1]) for i in range(len(chain) - 1)] + [wire("c", "yes", "y"), wire("c", "no", "n")]
+        graph = self.graph({"nodes": nodes, "wires": wires})
+        self.assertEqual(self.errors(graph), [])
+        start_manual(graph, "m", self.ivan)
+
+    def test_number_compare(self):
+        self.branch("var:keys>=3", setv("s", ("keys", "3")))
+        self.assertEqual((count("yes"), count("no")), (1, 0))
+
+    def test_below_threshold(self):
+        self.branch("var:keys>=3", setv("s", ("keys", "2")))
+        self.assertEqual((count("yes"), count("no")), (0, 1))
+
+    def test_equals_text_and_list(self):
+        self.branch("var:team=red and var:who=ivan", setv("a", ("team", "red")), setv("b", ("who", "ivan"), mode="op", op="push"))
+        self.assertEqual(count("yes"), 1)
+
+    def test_exists_and_not(self):
+        self.branch("not var:nothing and var:there", setv("s", ("there", "1")))
+        self.assertEqual(count("yes"), 1)
+
+    def test_nested_path(self):
+        self.branch("var:red.points>5", setv("s", ("red.points", "6")))
+        self.assertEqual(count("yes"), 1)
+
+    def test_wait_wakes_on_write_without_tick(self):
+        graph = self.graph({"nodes": [node("a", "manual"), node("w", "wait_cond", condition="var:keys>=2"), node("c", "do:world_count", name="woke"),
+                                      node("b", "manual"), setv("s", ("keys", "1"), mode="op")],
+                            "wires": [wire("a", "fire", "w"), wire("w", "next", "c"), wire("b", "fire", "s")]})
+        start_manual(graph, "a", self.ivan)
+        start_manual(graph, "b", self.anna)
+        self.assertEqual(count("woke"), 0)
+        start_manual(graph, "b", self.boris)
+        self.assertEqual(count("woke"), 1)
+
+    def test_unwritten_variable_is_warned(self):
+        doc = {"nodes": [node("m", "manual"), getv("g", "kyes"), node("c", "check", condition="var:keys>=1"), setv("s", ("keys", "1"))],
+               "wires": [wire("m", "fire", "c")]}
+        texts = [p["text"] for p in check.problems(doc) if p["level"] == "warning"]
+        self.assertTrue(any("«kyes»" in t for t in texts))
+        self.assertFalse(any("«keys»" in t for t in texts))

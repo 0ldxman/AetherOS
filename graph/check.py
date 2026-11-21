@@ -273,6 +273,30 @@ def _owned_rules(raw, add):
         add("", "нет стартовой ноды «Попытка»")
 
 
+def _variables(raw, groups, add):
+    """Переменная сценария читается («Переменная: Значение», «var:имя» в условии), а нигде не записывается: чаще всего опечатка в имени."""
+    import re
+
+    written, read = set(), []
+    for prefix, part in [("", raw), *[(f"{gid}::", part) for gid, part in groups.items()]]:
+        for node in (part or {}).get("nodes") or []:
+            if not isinstance(node, dict):
+                continue
+            data = node.get("data") or {}
+            key = f"{prefix}{node.get('id')}"
+            names = [str(row.get("name") or "").strip() for row in data.get("rows") or [] if isinstance(row, dict)]
+            if node.get("type") == "var_set" and (data.get("mode") or "set") in ("set", "op"):
+                written.update(name for name in names if name)
+            elif node.get("type") == "var_get":
+                read += [(key, name) for name in names if name]
+            for value in data.values():
+                if isinstance(value, str) and "var:" in value:
+                    read += [(key, found.strip()) for found in re.findall(r"var:([^\s()<>=]+)", value)]
+    for key, name in read:
+        if not any(name == w or w.startswith(name + ".") or name.startswith(w + ".") for w in written):
+            add(key, f"переменная «{name}» читается, но нигде не записывается", WARNING)
+
+
 def problems(raw, slug="", owner=""):
     """Список проблем сценария. Ключ ноды: её id на уровне графа или «группа::id» внутри определения группы."""
     from graph.runtime import flatten
@@ -293,6 +317,7 @@ def problems(raw, slug="", owner=""):
         _owned_rules(raw, add)
     for gid, part in groups.items():
         _part(part, groups, f"{gid}::", add, slug, names)
+    _variables(raw, groups, add)
     flat = Doc(flatten(raw, slug))
     if flat.nodes and not owner and not any(flat.is_start(node_id) and flat.wired(node_id) for node_id in flat.nodes):
         has_entry = any(node.get("type") == "group_in" for node in raw.get("nodes") or [])

@@ -396,7 +396,37 @@ def _holds(text, run, known=None):
     except ValueError as error:
         _log(run.graph, f"условие «{text}»: {error}", run.user)
         return False
-    return bool(satisfied(condition, _facts(run) if known is None else known))
+    return bool(satisfied(_with_vars(condition, run.graph), _facts(run) if known is None else known))
+
+
+_VAR = re.compile(r"^var:([^<>=]+?)(?:(>=|<=|>|<|=)(.+))?$")
+_TRUE, _FALSE = {"all": []}, {"any": []}                 # всегда верно / всегда неверно в формате secure.access
+
+
+def _var_holds(atom, shared):
+    """«var:имя» (есть и не пусто), «var:имя>=3» (числа), «var:имя=текст» (равно; в списке — есть такой элемент)."""
+    found = _VAR.match(atom)
+    if found is None:
+        return False
+    name, op, rhs = found.groups()
+    value = _dig(shared, name.strip())
+    if op is None:
+        return value not in (None, "", 0, False, [], {})
+    if op == "=" and isinstance(value, list):
+        return any(str(item) == rhs.strip() for item in value)
+    left, right = _number(value), _number(rhs)
+    if left is not None and right is not None:
+        return {">=": left >= right, "<=": left <= right, ">": left > right, "<": left < right, "=": left == right}[op]
+    return op == "=" and str(value if value is not None else "") == rhs.strip()
+
+
+def _with_vars(req, graph):
+    """Атомы «var:…» условия (переменные сценария) заменяются на верно / неверно: secure.access про сценарии не знает."""
+    if isinstance(req, str):
+        return (_TRUE if _var_holds(req, _shared(graph)) else _FALSE) if req.startswith("var:") else req
+    if isinstance(req, dict):
+        return {key: [_with_vars(item, graph) for item in value] if isinstance(value, list) else _with_vars(value, graph) for key, value in req.items()}
+    return req
 
 
 def _fill(value, run, keep=()):
@@ -982,6 +1012,21 @@ def _met(run, node_id):
     run.state = {**(run.state or {}), "vals": vals}
 
 
+def _wake_conditions(run):
+    """Переменная сценария изменилась: «Ждать условие» этого сценария пересчитываются сразу, а не на таймере."""
+    depth = _depth.get()
+    if depth >= DEPTH:
+        return
+    token = _depth.set(depth + 1)
+    try:
+        for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__graph=run.graph, run__status=Run.Status.RUNNING).exclude(run=run)
+                         .select_related("run__graph")):
+            if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
+                resume(wait)
+    finally:
+        _depth.reset(token)
+
+
 def _wait_cond(run, doc, node_id):
     """«Ждать условие»: верно сейчас — дальше сразу, иначе стоим и пересчитываем на событиях инициатора и по таймеру."""
     if _holds(resolved(run, doc, node_id).get("condition"), run):
@@ -1447,6 +1492,7 @@ def _execute(run, doc, node_id, sock):
         return ["next"]
     if name == "var_set":
         _set_vars(run, doc, node_id, doc.data(node_id))
+        _wake_conditions(run)
         return ["next"]
     if name == "branch_owner":
         return _owner(run, doc, data)
