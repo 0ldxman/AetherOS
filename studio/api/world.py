@@ -1,4 +1,4 @@
-"""Настройки мира: игровое время (опорные точки), последний контакт с центром, станции. От них считаются экраны входа, загрузки и приветствия.
+"""Мир: игровое время (опорные точки). От них считаются экраны входа, загрузки и приветствия.
 Логика времени в machines/world/chrono.py, здесь обёртка."""
 import datetime as dt
 
@@ -7,38 +7,10 @@ from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from machines.models import Machine, TimeAnchor, World
+from machines.models import Machine, TimeAnchor
 from machines.world import chrono
 
 router = Router(tags=["world"])
-
-
-class WorldOut(Schema):
-    core_last_contact: dt.date
-    beacon_last_sync: dt.date
-    cert_not_after: dt.date
-    stations_known: int
-    stations_reachable: int
-    audit_per_day: int
-
-
-def _out(world):
-    return WorldOut(**{name: getattr(world, name) for name in WorldOut.model_fields})
-
-
-@router.get("", response=WorldOut)
-def read(request):
-    return _out(World.current())
-
-
-@router.put("", response=WorldOut)
-def save(request, body: WorldOut):
-    world = World.current()
-    for name in WorldOut.model_fields:
-        setattr(world, name, getattr(body, name))
-    world.full_clean()
-    world.save()
-    return _out(world)
 
 
 # ---------- игровое время ----------

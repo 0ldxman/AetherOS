@@ -1,20 +1,9 @@
 from django.core.validators import MinValueValidator
 from django.db import models
 
-from machines.world import dates
-
 
 class World(models.Model):
-    """Настройки мира: когда центр замолчал, сколько станций в эфире. Одна запись на игру (pk=1).
-
-    От них считаются даты и числа в экранах входа, загрузки и приветствия. Пока записи нет, действуют значения из machines/world/dates.py."""
-
-    core_last_contact = models.DateField("Последний контакт с центром", default=dates.CORE_LAST_CONTACT)
-    beacon_last_sync = models.DateField("Последнее обновление списков станций и мостов", default=dates.BEACON_LAST_SYNC)
-    cert_not_after = models.DateField("Сертификат узла действует до", default=dates.CERT_NOT_AFTER)
-    stations_known = models.PositiveSmallIntegerField("Станций в каталоге", default=31)
-    stations_reachable = models.PositiveSmallIntegerField("Станций отвечает", default=17)
-    audit_per_day = models.PositiveSmallIntegerField("Записей аудита за сутки", default=34, help_text="Сколько копит узел с тех пор, как центр замолчал.")
+    """Мир: игровое время. Одна запись на игру (pk=1)."""
 
     class Meta:
         verbose_name = "Мир"

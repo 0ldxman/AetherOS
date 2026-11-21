@@ -257,14 +257,10 @@ class CreateAndSystemsTests(TestCase):
         self.assertEqual(twin.hid, self.core.hid)
 
     def test_world_settings_drive_dates_and_the_greeting(self):
-        from machines.world.dates import days_since, world
+        from machines.world.dates import CORE_LAST_CONTACT, days_since
 
-        data = self.call("get", "/world")[1]
-        self.assertEqual((data["stations_known"], data["core_last_contact"]), (31, "2027-10-29"))
-        data["stations_reachable"] = 20
-        self.assertEqual(self.call("put", "/world", data)[0], 200)
         self.assertEqual(self.call("post", "/world/time", {"game_at": "2030-11-15T03:14:00Z", "rate": 0})[0], 200)
-        self.assertEqual(days_since(world().core_last_contact), "1,113")
+        self.assertEqual(days_since(CORE_LAST_CONTACT), "1,113")
         status, shown = self.call("post", "/systems/AETHER/greeting/preview", {"greeting": "{date} {time} <since>2027-10-29</since>"})
         self.assertEqual(shown["errors"], [])
         self.assertEqual("".join(part["text"] for part in shown["lines"][0]), "2030-11-15 03:14 UTC 1,113")

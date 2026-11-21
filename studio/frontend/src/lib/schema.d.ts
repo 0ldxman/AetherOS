@@ -1965,24 +1965,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/world": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read */
-        get: operations["studio_api_world_read"];
-        /** Save */
-        put: operations["studio_api_world_save"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/studio/api/world/time": {
         parameters: {
             query?: never;
@@ -8125,30 +8107,6 @@ export interface components {
             is_dir: boolean;
             /** Mount */
             mount: boolean;
-        };
-        /** WorldOut */
-        WorldOut: {
-            /**
-             * Core Last Contact
-             * Format: date
-             */
-            core_last_contact: string;
-            /**
-             * Beacon Last Sync
-             * Format: date
-             */
-            beacon_last_sync: string;
-            /**
-             * Cert Not After
-             * Format: date
-             */
-            cert_not_after: string;
-            /** Stations Known */
-            stations_known: number;
-            /** Stations Reachable */
-            stations_reachable: number;
-            /** Audit Per Day */
-            audit_per_day: number;
         };
         /** AnchorOut */
         AnchorOut: {
@@ -15641,50 +15599,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImageListing"];
-                };
-            };
-        };
-    };
-    studio_api_world_read: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorldOut"];
-                };
-            };
-        };
-    };
-    studio_api_world_save: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WorldOut"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorldOut"];
                 };
             };
         };
