@@ -1,14 +1,13 @@
 <script lang="ts">
   // Свойства выбранной ноды: поля вида (и настройки старта или ожидания у существительного), проблемы, кто ждёт, запуск «Вручную».
-  import { api, problem } from "../../lib/api";
+  import { api } from "../../lib/api";
   import { engine } from "../../lib/engine.svelte";
-  import { toast } from "../../lib/toast.svelte";
   import { TYPES, inWhen, isTrigger, type Catalog, type Field, type GNode, type Kind, plainKind, wireOnly } from "./kinds";
 
-  let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, onstarted, groupTitle = null, ongrouptitle, onenter }: {
+  let { node, kind, catalog, waiting, fed, problems, stat, statKey, graphId, editable, onchange, onremove, groupTitle = null, ongrouptitle, onenter }: {
     node: GNode; kind: Kind; catalog: Catalog; waiting: boolean; fed: Record<string, string>; problems: { text: string; level: string }[];
     stat: { hits: number; players: number; waiting: number; oldest_days: number } | null; statKey: string; graphId: number; editable: boolean;
-    onchange: (patch: Partial<GNode>) => void; onremove: () => void; onstarted: () => void;
+    onchange: (patch: Partial<GNode>) => void; onremove: () => void;
     groupTitle?: string | null; ongrouptitle?: (title: string) => void; onenter?: () => void;
   } = $props();
 
@@ -32,20 +31,6 @@
     let n = socks.length + 1;
     while (taken.has(`s${n}`)) n += 1;
     set("sockets", [...socks, { name: `s${n}`, label: `${kind.name === "group_in" ? "Вход" : "Выход"} ${n}`, type: "event" }]);
-  }
-
-  // запуск «Вручную»
-  let players = $state<{ id: number; username: string }[]>([]);
-  let player = $state("");
-  $effect(() => {
-    if (kind.name !== "manual" || players.length) return;
-    api.GET("/studio/api/players").then(({ data: rowsFound }) => { players = (rowsFound ?? []).filter((r) => !r.staff).map((r) => ({ id: r.id, username: r.username })); });
-  });
-  async function start() {
-    const { data: done, error } = await api.POST("/studio/api/world/graphs/{graph_id}/start", { params: { path: { graph_id: graphId } }, body: { node: node.id, player: player ? +player : null } });
-    if (error || !done) return toast(problem(error), "error");
-    toast(done.status === "skipped" ? "Не запущено." : done.status === "running" ? "Прохождение идёт: ждёт на нодах." : `Прохождение закончено${done.outcome ? `: ${done.outcome}` : ""}.`);
-    onstarted();
   }
 
   // кто ждёт на ноде
@@ -162,17 +147,10 @@
     </div>
   {/if}
 
-  {#if kind.name === "manual"}
+  {#if kind.name === "manual" || kind.name.startsWith("ctl_")}
     <div class="box">
-      <span class="label">Запустить сейчас</span>
-      <div class="line">
-        <select class="field" bind:value={player}>
-          <option value="">без игрока</option>
-          {#each players as p (p.id)}<option value={String(p.id)}>{p.username}</option>{/each}
-        </select>
-        <button class="btn" onclick={start}>Запустить</button>
-      </div>
-      <p class="muted small">Сценарий должен быть включён и сохранён.</p>
+      <span class="label">Пульт</span>
+      <p class="muted small">Этим управляют на странице <a href="#/world">«Мир»</a>: сценарий должен быть включён и сохранён.</p>
     </div>
   {/if}
 

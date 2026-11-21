@@ -287,6 +287,8 @@ def _variables(raw, groups, add):
             names = [str(row.get("name") or "").strip() for row in data.get("rows") or [] if isinstance(row, dict)]
             if node.get("type") == "var_set" and (data.get("mode") or "set") in ("set", "op"):
                 written.update(name for name in names if name)
+            elif node.get("type") in ("ctl_switch", "ctl_text", "ctl_choice", "ctl_number") and str(data.get("name") or "").strip():
+                written.add(str(data["name"]).strip())                       # значение управления — переменная сценария
             elif node.get("type") == "var_get":
                 read += [(key, name) for name in names if name]
             for value in data.values():

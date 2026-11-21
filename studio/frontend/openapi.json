@@ -15137,10 +15137,10 @@
     ]
    }
   },
-  "/studio/api/world/graphs/{graph_id}/start": {
+  "/studio/api/world/graphs/{graph_id}/control": {
    "post": {
-    "operationId": "studio_api_graph_manual",
-    "summary": "Manual",
+    "operationId": "studio_api_graph_control",
+    "summary": "Control",
     "parameters": [
      {
       "in": "path",
@@ -15177,6 +15177,121 @@
      },
      "required": true
     },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/panel": {
+   "get": {
+    "operationId": "studio_api_graph_panel",
+    "summary": "Panel",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PnCard"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/active": {
+   "post": {
+    "operationId": "studio_api_graph_set_active",
+    "summary": "Set Active",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnActive"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PnActive"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/reset": {
+   "post": {
+    "operationId": "studio_api_graph_reset",
+    "summary": "Reset",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnCard"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
     "security": [
      {
       "StudioAuth": []
@@ -33185,12 +33300,183 @@
        }
       ],
       "title": "Player"
+     },
+     "value": {
+      "title": "Value"
      }
     },
     "required": [
      "node"
     ],
     "title": "GrStartIn",
+    "type": "object"
+   },
+   "PnCard": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "slug": {
+      "title": "Slug",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     },
+     "running": {
+      "title": "Running",
+      "type": "integer"
+     },
+     "stages": {
+      "items": {
+       "$ref": "#/components/schemas/PnStage"
+      },
+      "title": "Stages",
+      "type": "array"
+     },
+     "controls": {
+      "items": {
+       "$ref": "#/components/schemas/PnControl"
+      },
+      "title": "Controls",
+      "type": "array"
+     },
+     "variables": {
+      "additionalProperties": true,
+      "title": "Variables",
+      "type": "object"
+     }
+    },
+    "required": [
+     "id",
+     "slug",
+     "title",
+     "active",
+     "running",
+     "stages",
+     "controls",
+     "variables"
+    ],
+    "title": "PnCard",
+    "type": "object"
+   },
+   "PnControl": {
+    "properties": {
+     "node": {
+      "title": "Node",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value"
+     },
+     "options": {
+      "default": [],
+      "items": {
+       "type": "string"
+      },
+      "title": "Options",
+      "type": "array"
+     },
+     "min": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Min"
+     },
+     "max": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Max"
+     },
+     "step": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Step"
+     }
+    },
+    "required": [
+     "node",
+     "kind",
+     "name"
+    ],
+    "title": "PnControl",
+    "type": "object"
+   },
+   "PnStage": {
+    "properties": {
+     "node": {
+      "title": "Node",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "hits": {
+      "title": "Hits",
+      "type": "integer"
+     },
+     "players": {
+      "title": "Players",
+      "type": "integer"
+     },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "node",
+     "title",
+     "hits",
+     "players",
+     "waiting"
+    ],
+    "title": "PnStage",
+    "type": "object"
+   },
+   "PnActive": {
+    "properties": {
+     "active": {
+      "title": "Active",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "active"
+    ],
+    "title": "PnActive",
     "type": "object"
    }
   },

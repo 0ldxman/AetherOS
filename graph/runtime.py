@@ -640,6 +640,23 @@ def _changed(run, doc, node_id, depth=0):
     return out
 
 
+def _write_var(graph, name, value):
+    """Записать переменную сценария по пути (под блокировкой)."""
+    from graph.models import Shared
+
+    with transaction.atomic():
+        shared, _ = Shared.objects.select_for_update().get_or_create(graph=graph)
+        out = copy.deepcopy(shared.data if isinstance(shared.data, dict) else {})
+        _put(out, name, value)
+        shared.data = out
+        shared.save(update_fields=["data"])
+
+
+def variables(graph):
+    """Переменные сценария сейчас: словарь «путь → значение» (для страницы «Мир»)."""
+    return _shared(graph)
+
+
 def _shared(graph):
     from graph.models import Shared
 
@@ -1022,15 +1039,15 @@ def _met(run, node_id):
     run.state = {**(run.state or {}), "vals": vals}
 
 
-def _wake_conditions(run):
+def _wake_conditions(graph, skip=None):
     """Переменная сценария изменилась: «Ждать условие» этого сценария пересчитываются сразу, а не на таймере."""
     depth = _depth.get()
     if depth >= DEPTH:
         return
     token = _depth.set(depth + 1)
     try:
-        for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__graph=run.graph, run__status=Run.Status.RUNNING).exclude(run=run)
-                         .select_related("run__graph")):
+        waits = Wait.objects.filter(kind=Wait.Kind.CONDITION, run__graph=graph, run__status=Run.Status.RUNNING)
+        for wait in list((waits.exclude(run=skip) if skip is not None else waits).select_related("run__graph")):
             if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
                 resume(wait)
     finally:
@@ -1502,7 +1519,7 @@ def _execute(run, doc, node_id, sock):
         return ["next"]
     if name == "var_set":
         _set_vars(run, doc, node_id, doc.data(node_id))
-        _wake_conditions(run)
+        _wake_conditions(run.graph, run)
         return ["next"]
     if name in ("scenario_reset", "branch_restart"):
         condition = data.get("condition")
@@ -2002,6 +2019,47 @@ def decide(graph, user, *, host="", login="", **data):
         _answer.reset(token)
     found = holder["answer"]
     return None if found is None or found["mode"] == "default" else found
+
+
+def _control_value(kind, data, value):
+    """Значение управления из пульта: приведено к типу ноды или ValueError."""
+    if kind.name == "ctl_switch":
+        return _truth(value)
+    if kind.name == "ctl_text":
+        return str(value if value is not None else "")[:400]
+    if kind.name == "ctl_choice":
+        options = [line.strip() for line in str(data.get("options") or "").splitlines() if line.strip()]
+        if str(value) not in options:
+            raise ValueError("нет такого варианта")
+        return str(value)
+    number = _number(value)
+    if number is None:
+        raise ValueError("нужно число")
+    low, high = _number(data.get("min")), _number(data.get("max"))
+    if (low is not None and number < low) or (high is not None and number > high):
+        raise ValueError("число вне границ")
+    return _plain(number)
+
+
+def start_control(graph, node_id, value=None, user=None, author=None):
+    """Пульт на странице «Мир»: нажать кнопку или изменить значение. Значение (кроме кнопки) — переменная сценария с «Названием» ноды;
+    потом стартует поток этой ноды (у переключателя «Включили» / «Выключили»), а «Ждать условие» сценария пересчитываются сразу."""
+    doc = doc_of(graph)
+    kind = doc.kind(node_id)
+    if kind is None or kind.name not in N.CONTROLS:
+        raise ValueError("это не нода «Управление»")
+    data = doc.data(node_id)
+    out, found = "fire", {"author": author.get_username() if author is not None else ""}
+    if kind.name != "manual":
+        name = str(data.get("name") or "").strip()
+        if not name:
+            raise ValueError("у управления нет названия")
+        value = _control_value(kind, data, value)
+        out = {"ctl_switch": "on" if value else "off"}.get(kind.name, "set")
+        found["value"] = value
+        _write_var(graph, name, value)
+        _wake_conditions(graph)
+    return start(graph, node_id, out, user, {"event": N.MANUAL_EVENT, "data": found}, repeat="always")
 
 
 def start_manual(graph, node_id, user=None, author=None):

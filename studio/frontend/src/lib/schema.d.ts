@@ -4910,7 +4910,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/studio/api/world/graphs/{graph_id}/start": {
+    "/studio/api/world/graphs/{graph_id}/control": {
         parameters: {
             query?: never;
             header?: never;
@@ -4919,8 +4919,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Manual */
-        post: operations["studio_api_graph_manual"];
+        /** Control */
+        post: operations["studio_api_graph_control"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Panel */
+        get: operations["studio_api_graph_panel"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Active */
+        post: operations["studio_api_graph_set_active"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset */
+        post: operations["studio_api_graph_reset"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12297,6 +12348,69 @@ export interface components {
             node: string;
             /** Player */
             player?: number | null;
+            /** Value */
+            value?: unknown;
+        };
+        /** PnCard */
+        PnCard: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Active */
+            active: boolean;
+            /** Running */
+            running: number;
+            /** Stages */
+            stages: components["schemas"]["PnStage"][];
+            /** Controls */
+            controls: components["schemas"]["PnControl"][];
+            /** Variables */
+            variables: {
+                [key: string]: unknown;
+            };
+        };
+        /** PnControl */
+        PnControl: {
+            /** Node */
+            node: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value?: unknown;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /** Min */
+            min?: number | null;
+            /** Max */
+            max?: number | null;
+            /** Step */
+            step?: number | null;
+        };
+        /** PnStage */
+        PnStage: {
+            /** Node */
+            node: string;
+            /** Title */
+            title: string;
+            /** Hits */
+            hits: number;
+            /** Players */
+            players: number;
+            /** Waiting */
+            waiting: number;
+        };
+        /** PnActive */
+        PnActive: {
+            /** Active */
+            active: boolean;
         };
     };
     responses: never;
@@ -20879,7 +20993,7 @@ export interface operations {
             };
         };
     };
-    studio_api_graph_manual: {
+    studio_api_graph_control: {
         parameters: {
             query?: never;
             header?: never;
@@ -20901,6 +21015,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrStarted"];
+                };
+            };
+        };
+    };
+    studio_api_graph_panel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnCard"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_set_active: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PnActive"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnActive"];
+                };
+            };
+        };
+    };
+    studio_api_graph_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnCard"];
                 };
             };
         };

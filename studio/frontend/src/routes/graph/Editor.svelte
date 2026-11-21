@@ -589,7 +589,7 @@
             {#key current.id}
               <NodePanel node={current} kind={kindOf(current.type)!} {catalog} waiting={fedInto.has(current.id)} fed={fedFields} problems={nodeProblems}
                          stat={stats?.nodes[statPrefix + current.id] ?? null} statKey={statPrefix + current.id} graphId={id} {editable} onchange={(patch) => patchNode(current.id, patch)}
-                         onremove={() => removeNodes([current.id])} onstarted={load}
+                         onremove={() => removeNodes([current.id])}
                          groupTitle={current.type === "group" ? doc.groups?.[String(current.data.group ?? "")]?.title ?? "" : null}
                          ongrouptitle={(title) => setGroupTitle(String(current.data.group ?? ""), title)} onenter={() => enter(current.id)} />
             {/key}

@@ -257,8 +257,19 @@ def _signal(data, out, event):
     return _same((event.data or {}).get("signal"), data.get("name"))
 
 
-register(Kind("manual", "Запуск вручную", NOUN, "{label}", (Field("label", "Подпись кнопки", "text", "Запустить"),),
-              (Sock("fire", "Запустили"),), events={"fire": MANUAL_EVENT}, start_only=True))
+_CONTROL_NAME = Field("name", "Название", "text", "Тревога", True)
+CONTROLS = ("manual", "ctl_switch", "ctl_text", "ctl_choice", "ctl_number")           # «Управление»: ими автор правит сценарий на странице «Мир»
+register(Kind("manual", "Управление: Кнопка", NOUN, "{name}", (Field("name", "Название", "text", "Запустить"),),
+              (Sock("fire", "Нажата"),), events={"fire": MANUAL_EVENT}, start_only=True))
+register(Kind("ctl_switch", "Управление: Переключатель", NOUN, "{name}", (_CONTROL_NAME,),
+              (Sock("on", "Включили"), Sock("off", "Выключили")), events={"on": MANUAL_EVENT, "off": MANUAL_EVENT}, start_only=True))
+register(Kind("ctl_text", "Управление: Текстовый ввод", NOUN, "{name}", (_CONTROL_NAME,),
+              (Sock("set", "Введено"),), events={"set": MANUAL_EVENT}, start_only=True))
+register(Kind("ctl_choice", "Управление: Выбор", NOUN, "{name}", (_CONTROL_NAME, Field("options", "Варианты", "textarea", "по одному в строке", True)),
+              (Sock("set", "Выбрано"),), events={"set": MANUAL_EVENT}, start_only=True))
+register(Kind("ctl_number", "Управление: Число", NOUN, "{name}", (_CONTROL_NAME, Field("min", "От", "number", "0"), Field("max", "До", "number", "100"),
+                                                                 Field("step", "Шаг", "number", "1")),
+              (Sock("set", "Изменили"),), events={"set": MANUAL_EVENT}, start_only=True))
 register(Kind("signal", "Сигнал", NOUN, "{name}", (Field("name", "Название", "text", "bunker-open", True),),
               (Sock("got", "Получен"),), events={"got": SIGNAL_EVENT}, match=_signal, wait_skip=("past", "own")))
 
@@ -1076,7 +1087,11 @@ HELP = {
     "act:account.access": "Заблокировать вход на учётку на N минут (игроку или всем, с текстом) или снять блокировку.",
     "act:account.manage": "Создать учётку на машине (выход «Учётка») или удалить (учётку игрока — нельзя). «Инициатора» — его место на "
                           "этой машине (одна на машину): домашняя папка, почта, ключи, как на aether-main. Логин можно шаблоном: {player}.",
-    "manual": "Кнопка автора в панели ноды. Выход «Автор» — кто нажал. Для проверки можно запустить за игрока: он станет игроком потока. Только старт.",
+    "manual": "Кнопка автора на странице «Мир». Выход «Автор» — кто нажал. Для проверки можно запустить за игрока: он станет игроком потока. Только старт.",
+    "ctl_switch": "Переключатель на странице «Мир». Его значение — переменная сценария с этим названием (var:Название), «Включили» / «Выключили» запускают поток. Только старт.",
+    "ctl_text": "Текстовое поле на странице «Мир». Введённый текст — переменная сценария с этим названием, «Введено» запускает поток. Только старт.",
+    "ctl_choice": "Выбор из вариантов на странице «Мир». Выбранное — переменная сценария с этим названием, «Выбрано» запускает поток. Только старт.",
+    "ctl_number": "Число или ползунок на странице «Мир» (от, до, шаг). Значение — переменная сценария с этим названием, «Изменили» запускает поток. Только старт.",
     "try:machine": "Вход на выбранную машину. Tab — граф входа этой машины: от «Попытки» до «Ответить», без ожиданий. "
                    "Выходы ноды — сокеты «Выхода» внутри графа: события и данные.",
     "attempt:machine": "Игрок пытается войти: подробности попытки. Дальше проверки и действия, конец — «Ответить».",
@@ -1668,17 +1683,21 @@ SPACES = ("Машина", "Учётка", "Сессия", "Сетевой рес
 
 
 # семейства: одна нода в меню, режим — выпадающий список на ноде (первый вид — то, что добавляет меню)
-FAMILIES = {"Направить": ("check", "random", "turns")}
+FAMILIES = {"Направить": ("check", "random", "turns"), "Управление": CONTROLS}
 for _family, _names in FAMILIES.items():
     for _name in _names:
         KINDS[_name] = replace(KINDS[_name], family=_family)
 
 # события: игрок руками их не вызовет — время, сигналы, автор, изменения от сценария
-for _name in ("manual", "signal", "on:machine.status", "on:moment.status", "on:tag", "on:count", "on:count.threshold", "on:time", "on:schedule",
+for _name in (*CONTROLS, "signal", "on:machine.status", "on:moment.status", "on:tag", "on:count", "on:count.threshold", "on:time", "on:schedule",
               "on:layer.added", "on:air.station"):
     KINDS[_name] = replace(KINDS[_name], group=HAPPEN)
     DATA_OUTS[_name] = tuple(sock for sock in DATA_OUTS.get(_name, ()) if sock.name != "player")      # игрок их не вызывает: выхода «Игрок» нет
 DATA_OUTS["manual"] = (Sock("author", "Автор", "text", "author"),)          # кто из авторов нажал кнопку
+DATA_OUTS["ctl_switch"] = DATA_OUTS["manual"] + (Sock("value", "Включено", "bool", "value"),)
+DATA_OUTS["ctl_text"] = DATA_OUTS["manual"] + (Sock("value", "Текст", "text", "value"),)
+DATA_OUTS["ctl_choice"] = DATA_OUTS["manual"] + (Sock("value", "Вариант", "text", "value"),)
+DATA_OUTS["ctl_number"] = DATA_OUTS["manual"] + (Sock("value", "Число", "number", "value"),)
 DATA_OUTS["signal"] = (Sock("player", "Игрок", "player", "sender"), Sock("data", "Данные", "data", "payload"))      # кто послал и что передал
 
 

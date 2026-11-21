@@ -1,6 +1,7 @@
 """Сценарии-графы (приложение graph) для Студии: каталог нод, список, документ графа с проверкой и живыми счётчиками,
 кто ждёт на ноде, запуск «Вручную». Раздел прав «Мир»."""
 import datetime as dt
+from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -194,6 +195,7 @@ class GrIn(Schema):
 class GrStartIn(Schema):
     node: str
     player: int | None = None
+    value: Any = None                           # значение управления: да/нет, текст, вариант, число (у кнопки пусто)
 
 
 class GrStarted(Schema):
@@ -330,12 +332,97 @@ def waiting(request, graph_id: int, node: str):
             for user, since in stats.waiting(graph, node)]
 
 
-@router.post("/{int:graph_id}/start", response=GrStarted)
-def manual(request, graph_id: int, body: GrStartIn):
+@router.post("/{int:graph_id}/control", response=GrStarted)
+def control(request, graph_id: int, body: GrStartIn):
     graph = get_object_or_404(Graph, pk=graph_id)
     user = get_object_or_404(get_user_model(), pk=body.player) if body.player else None
     try:
-        run = runtime.start_manual(graph, body.node, user, author=request.user)
+        run = runtime.start_control(graph, body.node, body.value, user, author=request.user)
     except ValueError as error:
         raise HttpError(400, str(error)) from None
     return GrStarted(status=run.status if run else "skipped", outcome=run.outcome if run else "")
+
+
+# ---------- страница «Мир»: сценарии, этапы, пульт ----------
+
+class PnStage(Schema):
+    node: str
+    title: str
+    hits: int
+    players: int
+    waiting: int
+
+
+class PnControl(Schema):
+    node: str
+    kind: str                                   # manual | ctl_switch | ctl_text | ctl_choice | ctl_number
+    name: str
+    value: Any = None
+    options: list[str] = []
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+
+
+class PnCard(Schema):
+    id: int
+    slug: str
+    title: str
+    active: bool
+    running: int
+    stages: list[PnStage]
+    controls: list[PnControl]
+    variables: dict[str, Any]
+
+
+class PnActive(Schema):
+    active: bool
+
+
+def _num(value):
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _card(graph):
+    flat = runtime.Doc(runtime.flatten(graph.doc, graph.slug))
+    found = stats.of(graph)
+    shared = runtime.variables(graph)
+    ordered = sorted(flat.nodes.items(), key=lambda item: (item[1].get("x") or 0, item[1].get("y") or 0))
+    stages, controls = [], []
+    for node_id, node in ordered:
+        data = node.get("data") or {}
+        if node.get("type") == "stage":
+            seen = found["nodes"].get(node_id) or {}
+            stages.append(PnStage(node=node_id, title=str(data.get("title") or "").strip() or "без названия", hits=seen.get("hits", 0),
+                                  players=seen.get("players", 0), waiting=seen.get("waiting", 0)))
+        elif node.get("type") in nodes.CONTROLS:
+            name = str(data.get("name") or "").strip()
+            kind = node["type"]
+            controls.append(PnControl(node=node_id, kind=kind, name=name, value=None if kind == "manual" else runtime._dig(shared, name),
+                                      options=[line.strip() for line in str(data.get("options") or "").splitlines() if line.strip()] if kind == "ctl_choice" else [],
+                                      min=_num(data.get("min")) if kind == "ctl_number" else None, max=_num(data.get("max")) if kind == "ctl_number" else None,
+                                      step=_num(data.get("step")) if kind == "ctl_number" else None))
+    return PnCard(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, running=found["running"], stages=stages, controls=controls, variables=shared)
+
+
+@router.get("/panel", response=list[PnCard])
+def panel(request):
+    return [_card(graph) for graph in Graph.objects.filter(owner="").order_by("title")]
+
+
+@router.post("/{int:graph_id}/active", response=PnActive)
+def set_active(request, graph_id: int, body: PnActive):
+    graph = get_object_or_404(Graph, pk=graph_id)
+    graph.active = body.active
+    graph.save(update_fields=["active"])
+    return PnActive(active=graph.active)
+
+
+@router.post("/{int:graph_id}/reset", response=PnCard)
+def reset(request, graph_id: int):
+    graph = get_object_or_404(Graph, pk=graph_id)
+    runtime.reset_scenario(graph)
+    return _card(graph)
