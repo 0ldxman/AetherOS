@@ -12363,6 +12363,10 @@ export interface components {
             active: boolean;
             /** Running */
             running: number;
+            /** Waiting */
+            waiting: number;
+            /** Errors */
+            errors: number;
             /** Stages */
             stages: components["schemas"]["PnStage"][];
             /** Controls */

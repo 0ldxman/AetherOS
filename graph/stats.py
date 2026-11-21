@@ -16,7 +16,8 @@ def of(graph):
         slot["oldest_days"] = round((now - row["oldest"]).total_seconds() / 86400, 1)
     runs = Run.objects.filter(graph=graph)
     outcomes = {row["outcome"] or "done": row["n"] for row in runs.filter(status=Run.Status.DONE).values("outcome").annotate(n=Count("id"))}
-    return {"nodes": nodes, "running": runs.filter(status=Run.Status.RUNNING).count(), "outcomes": outcomes}
+    waiting = Wait.objects.filter(run__graph=graph, run__status=Run.Status.RUNNING).values("run").distinct().count()      # сколько потоков стоят на ожидании
+    return {"nodes": nodes, "running": runs.filter(status=Run.Status.RUNNING).count(), "outcomes": outcomes, "waiting": waiting}
 
 
 def waiting(graph, node_id, limit=50):

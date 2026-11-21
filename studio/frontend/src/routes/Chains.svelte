@@ -130,7 +130,7 @@
         <div class="block">
           <div class="shead">
             <span class="num">{i + 1}</span><b>{step.title}</b>
-            {#each row.breaks as name (name)}<a class="break" href="#/links">разрыв: {name}</a>{/each}
+            {#each row.breaks as name (name)}<a class="break" href="#/world/links">разрыв: {name}</a>{/each}
             <span class="spacer"></span>
             <span class="count">{row.reached} из {chain.players}</span>
           </div>

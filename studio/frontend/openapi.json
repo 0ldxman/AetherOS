@@ -33333,6 +33333,14 @@
       "title": "Running",
       "type": "integer"
      },
+     "waiting": {
+      "title": "Waiting",
+      "type": "integer"
+     },
+     "errors": {
+      "title": "Errors",
+      "type": "integer"
+     },
      "stages": {
       "items": {
        "$ref": "#/components/schemas/PnStage"
@@ -33359,6 +33367,8 @@
      "title",
      "active",
      "running",
+     "waiting",
+     "errors",
      "stages",
      "controls",
      "variables"

@@ -115,6 +115,19 @@ class PanelApiTests(TestCase):
         self.assertEqual(next(c for c in card["controls"] if c["kind"] == "ctl_number")["max"], 10)
         self.assertEqual(next(c for c in card["controls"] if c["kind"] == "ctl_choice")["options"], ["calm", "alert"])
         self.assertEqual((card["stages"][0]["title"], card["stages"][0]["hits"], card["variables"]), ("Door opened", 0, {}))
+        self.assertEqual((card["errors"], card["waiting"], card["running"]), (0, 0, 0))
+
+    def test_card_counts_errors_and_waiting_flows(self):
+        from graph.runtime import start_control
+
+        self.graph.doc["nodes"] += [{"id": "w", "type": "wait", "x": 400, "y": 0, "data": {"mode": "delay", "minutes": 5}},
+                                    {"id": "bad", "type": "do:world_flag", "x": 500, "y": 0, "data": {}}]
+        self.graph.doc["wires"] = [{"from": "bt", "out": "fire", "to": "w", "in": "in"}]
+        self.graph.save()
+        start_control(self.graph, "bt")
+        card = self.card()
+        self.assertEqual((card["waiting"], card["running"]), (1, 1))
+        self.assertGreaterEqual(card["errors"], 1)
 
     def test_control_sets_value_and_counts_the_stage(self):
         self.assertEqual(self.post("control", {"node": "sw", "value": True}).status_code, 200)

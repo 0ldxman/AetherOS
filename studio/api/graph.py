@@ -370,6 +370,8 @@ class PnCard(Schema):
     title: str
     active: bool
     running: int
+    waiting: int
+    errors: int
     stages: list[PnStage]
     controls: list[PnControl]
     variables: dict[str, Any]
@@ -405,7 +407,8 @@ def _card(graph):
                                       options=[line.strip() for line in str(data.get("options") or "").splitlines() if line.strip()] if kind == "ctl_choice" else [],
                                       min=_num(data.get("min")) if kind == "ctl_number" else None, max=_num(data.get("max")) if kind == "ctl_number" else None,
                                       step=_num(data.get("step")) if kind == "ctl_number" else None))
-    return PnCard(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, running=found["running"], stages=stages, controls=controls, variables=shared)
+    return PnCard(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, running=found["running"], waiting=found["waiting"],
+                  errors=sum(1 for p in check.problems(graph.doc, graph.slug, graph.owner) if p["level"] == "error"), stages=stages, controls=controls, variables=shared)
 
 
 @router.get("/panel", response=list[PnCard])

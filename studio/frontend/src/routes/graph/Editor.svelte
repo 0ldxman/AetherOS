@@ -525,7 +525,7 @@
     <header class="head">
       {#if !embedded}
         {#if graph?.owner}<button class="btn ghost" onclick={() => history.back()} aria-label="Назад" title="Назад">←</button>
-        {:else}<a class="btn ghost" href="#/graphs" aria-label="К списку сценариев" title="К списку сценариев">←</a>{/if}
+        {:else}<a class="btn ghost" href="#/world" aria-label="К сценариям" title="К сценариям">←</a>{/if}
       {/if}
       <input class="title" bind:value={form.title} aria-label="Название сценария" disabled={!editable} />
       {#if graph?.owner}<span class="chip" title="Граф попытки принадлежит вещи: решает сразу, без ожиданий; нет ответа — решают поля вещи">граф попытки</span>{/if}

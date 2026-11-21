@@ -16,12 +16,8 @@
   import Policies from "./routes/Policies.svelte";
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
-  import Time from "./routes/Time.svelte";
-  import WorldState from "./routes/WorldState.svelte";
   import Rules from "./routes/Rules.svelte";
-  import Links from "./routes/Links.svelte";
   import Chains from "./routes/Chains.svelte";
-  import Graphs from "./routes/Graphs.svelte";
   import GraphEditor from "./routes/graph/Editor.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
@@ -63,13 +59,9 @@
     | { name: "machine"; id: number; tab: string; sub: number | null }
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
-    | { name: "world" }
-    | { name: "time" }
-    | { name: "worldstate" }
+    | { name: "world"; tab: string }
     | { name: "rules" }
-    | { name: "links" }
     | { name: "chains"; id: number | null }
-    | { name: "graphs" }
     | { name: "graph"; id: number }
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
@@ -103,15 +95,16 @@
     if (match("/machines", route.path)) return { name: "machines" };
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
-    if (match("/world", route.path)) return { name: "world" };
-    if (match("/time", route.path)) return { name: "time" };
-    if (match("/world-state", route.path)) return { name: "worldstate" };
+    if ((found = match("/world/:tab", route.path))) return { name: "world", tab: found.tab };
+    if (match("/world", route.path)) return { name: "world", tab: "scenarios" };
+    if (match("/time", route.path)) return { name: "world", tab: "time" };               // прежние адреса разделов, что стали вкладками «Мира»
+    if (match("/world-state", route.path)) return { name: "world", tab: "state" };
+    if (match("/links", route.path)) return { name: "world", tab: "links" };
+    if (match("/graphs", route.path)) return { name: "world", tab: "scenarios" };
     if (match("/rules", route.path)) return { name: "rules" };
-    if (match("/links", route.path)) return { name: "links" };
     if ((found = match("/chains/:id", route.path))) return { name: "chains", id: +found.id };
     if (match("/chains", route.path)) return { name: "chains", id: null };
     if ((found = match("/graphs/:id", route.path))) return { name: "graph", id: +found.id };
-    if (match("/graphs", route.path)) return { name: "graphs" };
     if ((found = match("/formats/:id", route.path))) return { name: "formats", id: decodeURIComponent(found.id) };
     if (match("/formats", route.path)) return { name: "formats", id: null };
     if ((found = match("/encodings/:id", route.path))) return { name: "encodings", id: decodeURIComponent(found.id) };
@@ -259,19 +252,11 @@
     {:else if page.name === "scenes"}
       {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
-      <World />
-    {:else if page.name === "time"}
-      <Time />
-    {:else if page.name === "worldstate"}
-      <WorldState />
+      <World tab={page.tab} />
     {:else if page.name === "rules"}
       <Rules />
-    {:else if page.name === "links"}
-      <Links />
     {:else if page.name === "chains"}
       <Chains id={page.id} />
-    {:else if page.name === "graphs"}
-      <Graphs />
     {:else if page.name === "graph"}
       {#key page.id}<GraphEditor id={page.id} />{/key}
     {:else if page.name === "formats"}
