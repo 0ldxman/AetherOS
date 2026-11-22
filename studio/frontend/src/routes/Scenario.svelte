@@ -77,7 +77,7 @@
   <p class="muted pad">Загрузка…</p>
 {:else}
   <PageHead title={card.title}>
-    {#snippet sub()}<span class="mono">{card.slug}</span> · {status}{#if card.errors} · <span class="bad">ошибок: {card.errors}</span>{/if}{/snippet}
+    {#snippet sub()}<span class="mono">{card.slug}</span>{" · " + status}{#if card.errors}{" · "}<span class="bad">ошибок: {card.errors}</span>{/if}{/snippet}
     {#if editable}<Switch checked={card.active} label={card.active ? "Включён" : "Выключен"} onchange={setActive} />{/if}
     <a class="btn" href="#/graphs/{card.id}"><Icon name="pencil" size={14} />Редактировать</a>
     {#if editable}<button class="btn danger" onclick={reset}><Icon name="redo" size={14} />Сбросить</button>{/if}

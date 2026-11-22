@@ -12111,24 +12111,6 @@ export interface components {
             /** Here */
             here: string[];
         };
-        /** PnBranch */
-        PnBranch: {
-            /** Run */
-            run: number;
-            /** State */
-            state: string;
-            /** Owner */
-            owner: string;
-            /** At */
-            at: string;
-            /** Outcome */
-            outcome: string;
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-        };
         /** PnControl */
         PnControl: {
             /** Node */
@@ -12151,44 +12133,22 @@ export interface components {
             /** Step */
             step?: number | null;
         };
-        /** PnEdge */
-        PnEdge: {
-            /** Src */
-            src: string;
-            /** To */
-            to: string;
-            /** Back */
-            back: boolean;
-        };
         /** PnFlow */
         PnFlow: {
             /** Nodes */
-            nodes: components["schemas"]["PnStep"][];
+            nodes: unknown[];
             /** Edges */
-            edges: components["schemas"]["PnEdge"][];
+            edges: unknown[];
+            /** Tails */
+            tails: unknown[];
+            /** Forks */
+            forks: unknown[];
             /** Cols */
             cols: number;
             /** Rows */
             rows: number;
-            /** Forks */
-            forks: components["schemas"]["PnFork"][];
-        };
-        /** PnFork */
-        PnFork: {
-            /** Node */
-            node: string;
-            /** Title */
-            title: string;
-            /** Repeat */
-            repeat: boolean;
-            /** Open */
-            open: boolean;
-            /** Taken */
-            taken: number;
-            /** Total */
-            total: number;
-            /** Branches */
-            branches: components["schemas"]["PnBranch"][];
+            /** Here */
+            here: number;
         };
         /** PnScenario */
         PnScenario: {
@@ -12200,33 +12160,6 @@ export interface components {
             variables: {
                 [key: string]: unknown;
             };
-        };
-        /** PnStep */
-        PnStep: {
-            /** Id */
-            id: string;
-            /** Kind */
-            kind: string;
-            /** Role */
-            role: string;
-            /** Title */
-            title: string;
-            /** Col */
-            col: number;
-            /** Row */
-            row: number;
-            /** Branch */
-            branch: string;
-            /** Hits */
-            hits: number;
-            /** Last At */
-            last_at: string | null;
-            /** Here */
-            here: number;
-            /** State */
-            state: string;
-            /** Waits */
-            waits: components["schemas"]["PnWait"][];
         };
         /** PnTile */
         PnTile: {
@@ -12240,20 +12173,6 @@ export interface components {
              */
             title: string;
             control?: components["schemas"]["PnControl"] | null;
-        };
-        /** PnWait */
-        PnWait: {
-            /** Owner */
-            owner: string;
-            /**
-             * Since
-             * Format: date-time
-             */
-            since: string;
-            /** Until */
-            until: string | null;
-            /** Kind */
-            kind: string;
         };
         /** PnLayoutIn */
         PnLayoutIn: {

@@ -356,60 +356,15 @@ class PnCard(Schema):
     here: list[str]                              # где сценарий стоит сейчас: названия нод с ожиданиями
 
 
-class PnWait(Schema):
-    owner: str
-    since: dt.datetime
-    until: dt.datetime | None
-    kind: str
-
-
-class PnStep(Schema):
-    id: str
-    kind: str
-    role: str                                    # start | event | stage | wait | branch | end | other
-    title: str
-    col: int
-    row: int
-    branch: str
-    hits: int
-    last_at: dt.datetime | None
-    here: int
-    state: str                                   # done | here | ahead
-    waits: list[PnWait]
-
-
-class PnEdge(Schema):
-    # «from» — слово Python: в схеме поле зовётся src
-    src: str
-    to: str
-    back: bool
-
-
-class PnBranch(Schema):
-    run: int
-    state: str                                   # free | taken | done
-    owner: str
-    at: str
-    outcome: str
-    started_at: dt.datetime
-
-
-class PnFork(Schema):
-    node: str
-    title: str
-    repeat: bool
-    open: bool
-    taken: int
-    total: int
-    branches: list[PnBranch]
-
-
 class PnFlow(Schema):
-    nodes: list[PnStep]
-    edges: list[PnEdge]
+    # граф слева направо: узлы (col, row), стрелки с подписью ожидания, дорожки ветвлений; разбор — graph/flowmap.py
+    nodes: list[Any]
+    edges: list[Any]
+    tails: list[Any]
+    forks: list[Any]
     cols: int
     rows: int
-    forks: list[PnFork]
+    here: int                                    # сколько потоков стоят на ожиданиях
 
 
 class PnControl(Schema):
@@ -525,8 +480,7 @@ def panel(request):
 def scenario(request, graph_id: int):
     graph = get_object_or_404(Graph, pk=graph_id, owner="")
     flow = flowmap.build(graph)
-    return PnScenario(card=_card(graph), flow=PnFlow(nodes=flow["nodes"], edges=[PnEdge(src=e["from"], to=e["to"], back=e["back"]) for e in flow["edges"]],
-                                                     cols=flow["cols"], rows=flow["rows"], forks=flow["forks"]),
+    return PnScenario(card=_card(graph), flow=PnFlow(**flow),
                       tiles=_tiles(graph, _controls(graph)), variables=runtime.variables(graph))
 
 

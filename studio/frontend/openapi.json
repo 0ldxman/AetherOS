@@ -32653,45 +32653,6 @@
     "title": "PnCard",
     "type": "object"
    },
-   "PnBranch": {
-    "properties": {
-     "run": {
-      "title": "Run",
-      "type": "integer"
-     },
-     "state": {
-      "title": "State",
-      "type": "string"
-     },
-     "owner": {
-      "title": "Owner",
-      "type": "string"
-     },
-     "at": {
-      "title": "At",
-      "type": "string"
-     },
-     "outcome": {
-      "title": "Outcome",
-      "type": "string"
-     },
-     "started_at": {
-      "format": "date-time",
-      "title": "Started At",
-      "type": "string"
-     }
-    },
-    "required": [
-     "run",
-     "state",
-     "owner",
-     "at",
-     "outcome",
-     "started_at"
-    ],
-    "title": "PnBranch",
-    "type": "object"
-   },
    "PnControl": {
     "properties": {
      "node": {
@@ -32759,43 +32720,26 @@
     "title": "PnControl",
     "type": "object"
    },
-   "PnEdge": {
-    "properties": {
-     "src": {
-      "title": "Src",
-      "type": "string"
-     },
-     "to": {
-      "title": "To",
-      "type": "string"
-     },
-     "back": {
-      "title": "Back",
-      "type": "boolean"
-     }
-    },
-    "required": [
-     "src",
-     "to",
-     "back"
-    ],
-    "title": "PnEdge",
-    "type": "object"
-   },
    "PnFlow": {
     "properties": {
      "nodes": {
-      "items": {
-       "$ref": "#/components/schemas/PnStep"
-      },
+      "items": {},
       "title": "Nodes",
       "type": "array"
      },
      "edges": {
-      "items": {
-       "$ref": "#/components/schemas/PnEdge"
-      },
+      "items": {},
       "title": "Edges",
+      "type": "array"
+     },
+     "tails": {
+      "items": {},
+      "title": "Tails",
+      "type": "array"
+     },
+     "forks": {
+      "items": {},
+      "title": "Forks",
       "type": "array"
      },
      "cols": {
@@ -32806,68 +32750,21 @@
       "title": "Rows",
       "type": "integer"
      },
-     "forks": {
-      "items": {
-       "$ref": "#/components/schemas/PnFork"
-      },
-      "title": "Forks",
-      "type": "array"
+     "here": {
+      "title": "Here",
+      "type": "integer"
      }
     },
     "required": [
      "nodes",
      "edges",
+     "tails",
+     "forks",
      "cols",
      "rows",
-     "forks"
+     "here"
     ],
     "title": "PnFlow",
-    "type": "object"
-   },
-   "PnFork": {
-    "properties": {
-     "node": {
-      "title": "Node",
-      "type": "string"
-     },
-     "title": {
-      "title": "Title",
-      "type": "string"
-     },
-     "repeat": {
-      "title": "Repeat",
-      "type": "boolean"
-     },
-     "open": {
-      "title": "Open",
-      "type": "boolean"
-     },
-     "taken": {
-      "title": "Taken",
-      "type": "integer"
-     },
-     "total": {
-      "title": "Total",
-      "type": "integer"
-     },
-     "branches": {
-      "items": {
-       "$ref": "#/components/schemas/PnBranch"
-      },
-      "title": "Branches",
-      "type": "array"
-     }
-    },
-    "required": [
-     "node",
-     "title",
-     "repeat",
-     "open",
-     "taken",
-     "total",
-     "branches"
-    ],
-    "title": "PnFork",
     "type": "object"
    },
    "PnScenario": {
@@ -32898,85 +32795,6 @@
      "variables"
     ],
     "title": "PnScenario",
-    "type": "object"
-   },
-   "PnStep": {
-    "properties": {
-     "id": {
-      "title": "Id",
-      "type": "string"
-     },
-     "kind": {
-      "title": "Kind",
-      "type": "string"
-     },
-     "role": {
-      "title": "Role",
-      "type": "string"
-     },
-     "title": {
-      "title": "Title",
-      "type": "string"
-     },
-     "col": {
-      "title": "Col",
-      "type": "integer"
-     },
-     "row": {
-      "title": "Row",
-      "type": "integer"
-     },
-     "branch": {
-      "title": "Branch",
-      "type": "string"
-     },
-     "hits": {
-      "title": "Hits",
-      "type": "integer"
-     },
-     "last_at": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Last At"
-     },
-     "here": {
-      "title": "Here",
-      "type": "integer"
-     },
-     "state": {
-      "title": "State",
-      "type": "string"
-     },
-     "waits": {
-      "items": {
-       "$ref": "#/components/schemas/PnWait"
-      },
-      "title": "Waits",
-      "type": "array"
-     }
-    },
-    "required": [
-     "id",
-     "kind",
-     "role",
-     "title",
-     "col",
-     "row",
-     "branch",
-     "hits",
-     "last_at",
-     "here",
-     "state",
-     "waits"
-    ],
-    "title": "PnStep",
     "type": "object"
    },
    "PnTile": {
@@ -33010,43 +32828,6 @@
      "w"
     ],
     "title": "PnTile",
-    "type": "object"
-   },
-   "PnWait": {
-    "properties": {
-     "owner": {
-      "title": "Owner",
-      "type": "string"
-     },
-     "since": {
-      "format": "date-time",
-      "title": "Since",
-      "type": "string"
-     },
-     "until": {
-      "anyOf": [
-       {
-        "format": "date-time",
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Until"
-     },
-     "kind": {
-      "title": "Kind",
-      "type": "string"
-     }
-    },
-    "required": [
-     "owner",
-     "since",
-     "until",
-     "kind"
-    ],
-    "title": "PnWait",
     "type": "object"
    },
    "PnLayoutIn": {

@@ -120,7 +120,7 @@ class PanelApiTests(TestCase):
         self.assertEqual([(t["control"]["kind"], t["control"]["name"]) for t in page["tiles"]], [("ctl_switch", "Alarm"), ("ctl_choice", "Mode"), ("ctl_number", "Level"), ("manual", "Go")])
         self.assertEqual(next(t for t in page["tiles"] if t["control"]["kind"] == "ctl_number")["control"]["max"], 10)
         self.assertEqual(next(t for t in page["tiles"] if t["control"]["kind"] == "ctl_choice")["control"]["options"], ["calm", "alert"])
-        self.assertEqual([(n["title"], n["state"], n["hits"]) for n in page["flow"]["nodes"]], [("Door opened", "ahead", 0)])
+        self.assertEqual([(n["title"], n["state"], n["hits"]) for n in page["flow"]["nodes"] if n["role"] == "stage"], [("Door opened", "ahead", 0)])
         self.assertEqual(page["variables"], {})
         self.assertEqual(page["card"]["slug"], "panel")
 
@@ -143,7 +143,7 @@ class PanelApiTests(TestCase):
         page = self.scenario()
         self.assertEqual(page["variables"], {"Alarm": True, "Mode": "alert"})
         self.assertEqual(next(t for t in page["tiles"] if t["control"]["name"] == "Alarm")["control"]["value"], True)
-        self.assertEqual((page["flow"]["nodes"][0]["state"], page["flow"]["nodes"][0]["hits"]), ("done", 1))
+        self.assertEqual(next((n["state"], n["hits"]) for n in page["flow"]["nodes"] if n["role"] == "stage"), ("done", 1))
         self.assertEqual(self.post("control", {"node": "ch", "value": "panic"}).status_code, 400)
         self.assertEqual(self.post("control", {"node": "nm", "value": 99}).status_code, 400)
         entries = self.client.get(f"{URL}/{self.graph.pk}/journal").json()["entries"]
