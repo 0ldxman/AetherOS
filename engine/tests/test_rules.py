@@ -8,7 +8,6 @@ from engine import rules
 from engine.events import emit
 from engine.models import Rule, RuleFire
 from forum.models import Post, Section, Space
-from team.testing import full_role
 
 
 class RuleTests(TestCase):
@@ -69,31 +68,3 @@ class RuleTests(TestCase):
         Rule.objects.create(name="pong", on="world.flag", match={"flag": "b"}, once="always", actions=[{"do": "world_unflag", "name": "b"}, {"do": "world_flag", "name": "a"}])
         emit("world.flag", self.ivan, flag="a", on=True)            # не зависает
         self.assertTrue(Value.objects.filter(kind="tag", owner="world").exists())
-
-
-class RuleApiTests(TestCase):
-    def setUp(self):
-        self.boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
-        self.client.force_login(self.boss)
-
-    def post(self, body):
-        return self.client.post("/studio/api/world/rules", body, content_type="application/json")
-
-    def test_create_validate_and_see_who_fired(self):
-        body = {"name": "first-boreas", "on": "key.got", "match": {"slug": "boreas"}, "condition_text": "tag:met", "once": "world",
-                "actions": [{"do": "world_flag", "name": "decoded"}]}
-        self.assertEqual(self.post({**body, "on": "nope"}).status_code, 400)
-        self.assertEqual(self.post({**body, "match": {"nope": "x"}}).status_code, 400)
-        self.assertEqual(self.post({**body, "actions": [{"do": "goto", "step": "x"}]}).status_code, 400)
-        self.assertEqual(self.post({**body, "actions": [{"do": "alert", "message": "x"}]}).status_code, 400)       # браузера у правила нет
-        response = self.post(body)
-        self.assertEqual(response.status_code, 200)
-        row = response.json()["rules"][0]
-        self.assertEqual((row["condition_text"], row["fires"]), ("tag:met", 0))
-        ivan = get_user_model().objects.create_user("ivan")
-        store.set_tag("player", ivan.pk, "met")
-        emit("key.got", ivan, slug="boreas")
-        row = self.client.get("/studio/api/world/rules").json()["rules"][0]
-        self.assertEqual((row["fires"], row["first_player"]), (1, "ivan"))
-        self.client.post(f"/studio/api/world/rules/{row['id']}/reset")
-        self.assertEqual(self.client.get("/studio/api/world/rules").json()["rules"][0]["fires"], 0)

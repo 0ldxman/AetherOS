@@ -7,7 +7,6 @@ from engine import chains
 from engine.events import emit
 from engine.models import Chain, ChainReach, ChainStep
 from machines.models import Machine, MachineProfile
-from team.testing import full_role
 
 
 class ChainTests(TestCase):
@@ -41,17 +40,3 @@ class ChainTests(TestCase):
         self.assertEqual([w["user"] for w in second["waiting"]], [self.anna])
         self.assertEqual(report["finished"], [self.ivan])
         self.assertEqual(second["breaks"], ["tag:door"])               # tag:door никто не ставит
-
-    def test_studio_edits_steps_and_keeps_reaches(self):
-        boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
-        self.client.force_login(boss)
-        store.set_tag("player", self.ivan.pk, "met")
-        chains.update(self.ivan)
-        body = {"slug": "door", "title": "Door", "steps": [{"id": self.one.pk, "title": "Met", "condition_text": "tag:met"},
-                                                           {"title": "Got key", "condition_text": "mask"}]}
-        response = self.client.put(f"/studio/api/world/chains/{self.chain.pk}", body, content_type="application/json")
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(([s["title"] for s in data["steps"]], data["funnel"][0]["reached"], data["funnel"][0]["first_player"]), (["Met", "Got key"], 1, "ivan"))
-        bad = {**body, "steps": [{"title": "x", "condition_text": ""}]}
-        self.assertEqual(self.client.put(f"/studio/api/world/chains/{self.chain.pk}", bad, content_type="application/json").status_code, 400)

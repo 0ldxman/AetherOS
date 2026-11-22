@@ -16,8 +16,6 @@
   import Policies from "./routes/Policies.svelte";
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
-  import Rules from "./routes/Rules.svelte";
-  import Chains from "./routes/Chains.svelte";
   import GraphEditor from "./routes/graph/Editor.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
@@ -60,8 +58,6 @@
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
     | { name: "world"; tab: string }
-    | { name: "rules" }
-    | { name: "chains"; id: number | null }
     | { name: "graph"; id: number }
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
@@ -101,9 +97,6 @@
     if (match("/world-state", route.path)) return { name: "world", tab: "state" };
     if (match("/links", route.path)) return { name: "world", tab: "links" };
     if (match("/graphs", route.path)) return { name: "world", tab: "scenarios" };
-    if (match("/rules", route.path)) return { name: "rules" };
-    if ((found = match("/chains/:id", route.path))) return { name: "chains", id: +found.id };
-    if (match("/chains", route.path)) return { name: "chains", id: null };
     if ((found = match("/graphs/:id", route.path))) return { name: "graph", id: +found.id };
     if ((found = match("/formats/:id", route.path))) return { name: "formats", id: decodeURIComponent(found.id) };
     if (match("/formats", route.path)) return { name: "formats", id: null };
@@ -253,10 +246,6 @@
       {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
       <World tab={page.tab} />
-    {:else if page.name === "rules"}
-      <Rules />
-    {:else if page.name === "chains"}
-      <Chains id={page.id} />
     {:else if page.name === "graph"}
       {#key page.id}<GraphEditor id={page.id} />{/key}
     {:else if page.name === "formats"}

@@ -100,22 +100,22 @@ def _requirements():
         for value in (section.read_if, section.write_if, section.create_if):
             add(value, Place("раздел форума", f"{section.space.title}: {section.title}", f"#/forum/{section.space.slug}/sections"))
     for row in WorldTrigger.objects.all():
-        add(row.condition, Place("триггер", row.name, "#/world-state"))
+        add(row.condition, Place("триггер", row.name, "#/world/state"))
     for row in WorldMoment.objects.exclude(condition=None):
-        add(row.condition, Place("момент", row.name, "#/world-state"))
+        add(row.condition, Place("момент", row.name, "#/world/state"))
     for row in WorldLetter.objects.exclude(condition=None).select_related("item"):
         add(row.condition, Place("письмо всем", row.item.slug, ""))
     for row in Rule.objects.all():
-        place = Place("правило", row.name, "#/rules")
+        place = Place("правило", row.name, "")
         add(row.condition, place)
         watched = {"key.got": "key", "key.joined": "key", "world.flag": "world", "world.counter": "counter"}.get(row.on)
         name = (row.match or {}).get({"key": "slug", "world": "flag", "counter": "counter"}.get(watched, ""), "")
         if watched and name and not any(ch in str(name) for ch in "*?["):
-            out.append((watched, str(name), Place("правило ждёт", row.name, "#/rules")))
+            out.append((watched, str(name), Place("правило ждёт", row.name, "")))
     from engine.models import ChainStep
 
     for step in ChainStep.objects.select_related("chain"):
-        add(step.condition, Place("шаг цепочки", f"{step.chain.title}: {step.title}", f"#/chains/{step.chain_id}"))
+        add(step.condition, Place("шаг цепочки", f"{step.chain.title}: {step.title}", ""))
     for part in KeyPart.objects.select_related("recipe__result", "item"):
         out.append(("key", part.item.slug, Place("сборка ключа", f"часть {part.recipe.result.slug}", f"#/items/{part.recipe.result_id}")))
     out += _spoilers()
@@ -151,9 +151,9 @@ def _action_lists():
     for row in Responder.objects.select_related("station"):
         out.append((row.actions, Place("ответчик эфира", str(row), "#/air")))
     for row in WorldTrigger.objects.all():
-        out.append((row.actions, Place("триггер", row.name, "#/world-state")))
+        out.append((row.actions, Place("триггер", row.name, "#/world/state")))
     for row in Rule.objects.all():
-        out.append((row.actions, Place("правило", row.name, "#/rules")))
+        out.append((row.actions, Place("правило", row.name, "")))
     return out
 
 
@@ -177,9 +177,9 @@ def _grants():
     for recipe in KeyRecipe.objects.select_related("result"):
         out.append(("key", recipe.result.slug, Place("сборка из частей", recipe.result.slug, f"#/items/{recipe.result_id}")))
     for moment in WorldMoment.objects.all():
-        out.append(("world", moment.name, Place("момент", moment.title or moment.name, "#/world-state")))
-    manual = [("world", name, Place("пульт мира", "вручную", "#/world-state")) for name in state.names("tag")]
-    manual += [("counter", name, Place("пульт мира", "вручную", "#/world-state")) for name in state.names("count")]
+        out.append(("world", moment.name, Place("момент", moment.title or moment.name, "#/world/state")))
+    manual = [("world", name, Place("пульт мира", "вручную", "#/world/state")) for name in state.names("tag")]
+    manual += [("counter", name, Place("пульт мира", "вручную", "#/world/state")) for name in state.names("count")]
     return out, manual
 
 
