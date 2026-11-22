@@ -69,16 +69,17 @@ def _owner(run):
     return run.owner.get_username() if run.owner_id else ""
 
 
-def _layers(kept, edges):
+def _layers(kept, edges, key=str):
     """Колонка = самый длинный путь до узла; обратные провода (циклы сценария) отделяются."""
     out = defaultdict(list)
     for a, b in edges:
         out[a].append(b)
     state, back = {}, set()
-    for root in sorted(kept):
+    targets = {b for _, b in edges}                                  # обход начинается со входов сценария: так обратным окажется именно провод цикла
+    for root in sorted((n for n in kept if n not in targets), key=key) + sorted((n for n in kept if n in targets), key=key):
         if root in state:
             continue
-        stack = [(root, iter(sorted(out[root])))]
+        stack = [(root, iter(sorted(out[root], key=key)))]
         state[root] = 1
         while stack:
             node, it = stack[-1]
@@ -87,7 +88,7 @@ def _layers(kept, edges):
                     back.add((node, nxt))
                 elif nxt not in state:
                     state[nxt] = 1
-                    stack.append((nxt, iter(sorted(out[nxt]))))
+                    stack.append((nxt, iter(sorted(out[nxt], key=key))))
                     break
             else:
                 state[node] = 2
@@ -178,8 +179,6 @@ def build(graph):
         visible.add(a + "#lane")
         edges[(a, a + "#lane")] = {"label": "", "via": via, "lane": True}
 
-    depth, back = _layers(visible, set(edges))
-
     def enclosing(nid):
         found = [f for f in forks if nid.startswith(f + "/")]
         return max(found, key=len) if found else ""
@@ -187,6 +186,8 @@ def build(graph):
     def order(nid):
         node = doc.nodes[nid[:-5] if nid.endswith("#lane") else nid]
         return (node.get("y") or 0, node.get("x") or 0, nid)
+
+    depth, back = _layers(visible, set(edges), order)
 
     branch = {nid: (nid[:-5] if nid.endswith("#lane") else enclosing(nid)) for nid in visible}
     preds = defaultdict(list)

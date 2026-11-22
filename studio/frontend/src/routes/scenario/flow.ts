@@ -31,7 +31,7 @@ export function route(a: Pt, b: Pt, e: { lane: boolean; back: boolean }): Route 
   }
   const x1 = a.x + R + 2, y1 = a.y, x2 = b.x - R - 5, y2 = b.y;
   if (e.back) {
-    const low = Math.max(y1, y2) + 46;
+    const low = Math.max(y1, y2) + 104;
     const c = [x1 + 50, low, x2 - 50, low] as const;
     return { d: `M${x1} ${y1} C${c[0]} ${c[1]} ${c[2]} ${c[3]} ${x2} ${y2}`, at: (t) => cubic(x1, y1, c[0], c[1], c[2], c[3], x2, y2, t) };
   }

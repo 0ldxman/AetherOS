@@ -79,6 +79,14 @@ class FlowMapTests(TestCase):
         self.assertRegex(row["until_game"], r"^\d{4}-\d\d-\d\d \d\d:\d\d$")
         self.assertTrue(row["id"] and row["run"])
 
+    def test_a_loop_back_keeps_the_stages_in_story_order(self):
+        graph = make([node("go", "manual", name="Go"), stage("s1", "One"), stage("s2", "Two"), stage("s3", "Three"), node("t", "on:terminal.command", command="retry"), stage("late", "Late")],
+                     [wire("go", "fire", "s1"), wire("s1", "next", "s2"), wire("s2", "next", "s3"), wire("s3", "next", "late"), wire("late", "next", "t"), wire("t", "run", "s2")], slug="loopback")
+        flow = flowmap.build(graph)
+        found = by_id(flow)
+        self.assertEqual([found[i]["col"] for i in ("s1", "s2", "s3", "late")], [1, 2, 3, 4])
+        self.assertEqual([(e["src"], e["to"]) for e in flow["edges"] if e["back"]], [("late", "s2")])
+
     def test_empty_and_cycle_do_not_break(self):
         self.assertEqual(flowmap.build(make([], [], slug="empty"))["nodes"], [])
         graph = make([stage("a", "A"), stage("b", "B")], [wire("a", "next", "b"), wire("b", "next", "a")], slug="loop")
