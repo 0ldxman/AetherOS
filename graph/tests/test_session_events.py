@@ -51,3 +51,27 @@ class JournalNodeTests(TestCase):
         start_control(graph, "go")
         entry = Entry.objects.get(graph=graph, kind="note")
         self.assertEqual((entry.text, entry.node), ("дошли до сейфа", "j"))
+
+
+class SignalJournalTests(TestCase):
+    def test_a_sent_signal_is_written_to_the_journal(self):
+        graph = make([node("go", "manual", name="Go"), node("s", "send_signal", name="bunker-open", scope="world")], [wire("go", "fire", "s")], slug="sig")
+        start_control(graph, "go")
+        entry = Entry.objects.get(graph=graph, kind="signal")
+        self.assertEqual((entry.text, entry.node), ("Сигнал «bunker-open»: Мир", "s"))
+
+
+class NotifyNodeTests(TestCase):
+    def test_authors_get_a_notification_with_a_link_to_the_journal(self):
+        from team.models import Notification
+
+        users = get_user_model().objects
+        boss, other, player = users.create_user("boss", is_staff=True), users.create_user("other", is_staff=True), users.create_user("ivan")
+        graph = make([node("go", "manual", name="Go"), node("n", "notify", text="{player} дошёл до сейфа"), node("n2", "notify", text="только boss", to=["Boss"])],
+                     [wire("go", "fire", "n"), wire("n", "next", "n2")], slug="ntf")
+        self.assertEqual([p for p in check.problems(graph.doc) if p["level"] == "error"], [])
+        start_control(graph, "go", user=player)
+        self.assertEqual(sorted(Notification.objects.filter(user=boss).values_list("text", flat=True)), ["«ntf»: ivan дошёл до сейфа", "«ntf»: только boss"])
+        self.assertEqual(list(Notification.objects.filter(user=other).values_list("text", flat=True)), ["«ntf»: ivan дошёл до сейфа"])
+        self.assertFalse(Notification.objects.filter(user=player).exists())
+        self.assertEqual(Notification.objects.filter(user=boss).first().link, f"#/world/scenario/{graph.pk}/journal")

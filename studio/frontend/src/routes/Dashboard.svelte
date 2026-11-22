@@ -93,7 +93,7 @@
   });
 
   const ACTION_MARK: Record<string, string> = { create: "+", update: "✎", delete: "×", act: "•" };
-  const NOTE_MARK: Record<string, string> = { assigned: "→", mention: "@", due: "…", overdue: "!" };
+  const NOTE_MARK: Record<string, string> = { assigned: "→", mention: "@", due: "…", overdue: "!", scenario: "◆" };
 
   async function readNotes(ids: number[]) {
     const { data } = await api.POST("/studio/api/notifications/read", { body: { ids } });

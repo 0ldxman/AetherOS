@@ -13458,6 +13458,41 @@
     ]
    }
   },
+  "/studio/api/world/state/uses": {
+   "get": {
+    "operationId": "studio_api_worldstate_uses",
+    "summary": "Uses",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": {
+          "items": {
+           "$ref": "#/components/schemas/WsUse"
+          },
+          "type": "array"
+         },
+         "title": "Response",
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "description": "В каких сценариях встречается имя переменной мира: как значение поля ноды или внутри условия world:имя. Грубо, по тексту графа.",
+    "tags": [
+     "world-state"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state": {
    "get": {
     "operationId": "studio_api_worldstate_read",
@@ -30764,6 +30799,24 @@
      "text"
     ],
     "title": "ChSayIn",
+    "type": "object"
+   },
+   "WsUse": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "title"
+    ],
+    "title": "WsUse",
     "type": "object"
    },
    "WsCounter": {

@@ -7,7 +7,9 @@
   import ActionsEditor from "../lib/ActionsEditor.svelte";
   import Hint from "../lib/Hint.svelte";
   import { summary, type Act } from "../lib/engine.svelte";
+  import Icon from "../lib/Icon.svelte";
   import PageHead from "../lib/PageHead.svelte";
+  import Switch from "../lib/Switch.svelte";
   import { ask } from "../lib/confirm.svelte";
   import { toast } from "../lib/toast.svelte";
 
@@ -35,14 +37,9 @@
   const when = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
   // ---------- метки ----------
-  let flagForm = $state({ name: "", label: "" });
   async function setFlag(name: string, on: boolean, label = "") {
     const { data: next, error } = await api.POST("/studio/api/world/state/flags", { body: { name, label, on } });
     if (take(next, error)) toast(on ? `world:${name} поставлена.` : `world:${name} снята.`);
-  }
-  async function addFlag() {
-    const { data: next, error } = await api.POST("/studio/api/world/state/flags", { body: { ...flagForm, on: false } });
-    if (take(next, error)) flagForm = { name: "", label: "" };
   }
   async function dropFlag(name: string) {
     if (!(await ask(`Удалить world:${name}?`, "Условия с этой меткой станут неверными."))) return;
@@ -51,20 +48,9 @@
   }
 
   // ---------- счётчики ----------
-  let counterForm = $state({ name: "", label: "" });
-  let setting = $state<{ name: string; value: number } | null>(null);
-  async function addCounter() {
-    const { data: next, error } = await api.POST("/studio/api/world/state/counters", { body: counterForm });
-    if (take(next, error)) counterForm = { name: "", label: "" };
-  }
   async function bump(name: string, value: number) {
     const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/add", { params: { path: { name } }, body: { value } });
     take(next, error);
-  }
-  async function setValue() {
-    if (!setting) return;
-    const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/set", { params: { path: { name: setting.name } }, body: { value: setting.value } });
-    if (take(next, error)) setting = null;
   }
   async function dropCounter(name: string) {
     if (!(await ask(`Удалить world:${name}?`, "Значение и все вклады пропадут, условия на счётчик будут считать его нулём."))) return;
@@ -84,10 +70,6 @@
     }
     const { data: next, error } = await api.PUT("/studio/api/world/state/counters/{name}/labels", { params: { path: { name: labeling.name } }, body: { labels } });
     if (take(next, error)) labeling = null;
-  }
-  function scale(c: Counter) {
-    const top = Math.max(c.value, ...c.thresholds.map((t) => t.value), 1);
-    return (v: number) => Math.max(0, Math.min(100, (v / (top * 1.08)) * 100));
   }
 
   // ---------- моменты ----------
@@ -189,126 +171,194 @@
     if (t.fired_count) return { text: `срабатывал ${t.fired_count} раз, последний ${when(t.fired_at)}`, cls: "done" };
     return { text: t.was_true ? "условие верно" : "ждёт условия", cls: "wait" };
   }
+
+  // ---------- таблица переменных ----------
+  type Use = { id: number; title: string };
+  let uses = $state<Record<string, Use[]>>({});                      // где имя встречается в сценариях (грузится один раз)
+  let query = $state("");
+  let varForm = $state<{ type: "flag" | "counter"; name: string; label: string } | null>(null);
+  let editing = $state<{ name: string; value: number } | null>(null);
+  let said = $state("");
+  onMount(() => { api.GET("/studio/api/world/state/uses").then(({ data: found }) => { if (found) uses = found; }); });
+
+  type Row = { kind: "flag" | "counter"; name: string; label: string; flag?: Schemas["WsFlag"]; counter?: Counter };
+  const rows = $derived<Row[]>(
+    data
+      ? [...data.flags.map((f): Row => ({ kind: "flag", name: f.name, label: f.label, flag: f })), ...data.counters.map((c): Row => ({ kind: "counter", name: c.name, label: c.label, counter: c }))]
+          .filter((r) => !query.trim() || `${r.name} ${r.label}`.toLowerCase().includes(query.trim().toLowerCase()))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      : [],
+  );
+  async function createVar() {
+    if (!varForm) return;
+    busy = true;
+    const body = { name: varForm.name, label: varForm.label };
+    const { data: next, error } = varForm.type === "flag"
+      ? await api.POST("/studio/api/world/state/flags", { body: { ...body, on: false } })
+      : await api.POST("/studio/api/world/state/counters", { body });
+    busy = false;
+    if (take(next, error)) { said = `world:${varForm.name} добавлена`; varForm = null; }
+  }
+  async function commitEdit() {
+    if (!editing) return;
+    const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/set", { params: { path: { name: editing.name } }, body: { value: Math.trunc(Number(editing.value) || 0) } });
+    if (take(next, error)) { said = `world:${editing.name}: значение задано`; editing = null; }
+  }
+  const focusOnMount = (el: HTMLInputElement) => { el.focus(); el.select(); };
+  const place = (list: Use[] | undefined) => (list ?? []);
 </script>
 
 <PageHead title="Состояние мира">
-  {#snippet sub()}Метки и счётчики, одни на всех игроков. В любом условии пишутся как <code>world:core-online</code> и <code>world:fragments&gt;=7</code>. Триггеры следят за ними и меняют мир.{/snippet}
+  {#snippet sub()}Метки и счётчики мира, одни на всех игроков. В условиях пишутся как <code>world:core-online</code> и <code>world:fragments&gt;=7</code>.{/snippet}
+  {#if data && data.flags.length + data.counters.length > 6}
+    <label class="find"><Icon name="search" size={14} /><input placeholder="Найти переменную" bind:value={query} aria-label="Найти переменную" /></label>
+  {/if}
+  <button class="btn primary" onclick={() => (varForm = { type: "flag", name: "", label: "" })}>+ Переменная</button>
 </PageHead>
 
+<p class="sr" aria-live="polite" role="status">{said}</p>
+
 {#if data}
-  <div class="grid">
-    <section class="card">
-      <div class="bhead"><h2>Метки</h2></div>
-      <ul class="flags">
-        {#each data.flags as f (f.name)}
-          <li class:on={f.on}>
-            <button class="switch" role="switch" aria-checked={f.on} onclick={() => setFlag(f.name, !f.on, f.label)} aria-label="{f.on ? 'Снять' : 'Поставить'} world:{f.name}"><span></span></button>
-            <div class="who"><b class="mono">world:{f.name}</b>{#if f.label}<span class="muted small">{f.label}</span>{/if}
-              {#if f.changed_at}<span class="muted small">{f.on ? "поставлена" : "снята"} {when(f.changed_at)}{f.changed_by ? ` · ${f.changed_by}` : ""}</span>{/if}</div>
-            <button class="x" onclick={() => dropFlag(f.name)} title="Удалить метку" aria-label="Удалить метку">✕</button>
-          </li>
-        {:else}<li class="muted small empty">Меток пока нет.</li>{/each}
-      </ul>
-      <form class="add" onsubmit={(e) => { e.preventDefault(); addFlag(); }}>
-        <input class="field mono" placeholder="имя: core-online" bind:value={flagForm.name} aria-label="Имя метки" />
-        <input class="field" placeholder="подпись для авторов" bind:value={flagForm.label} aria-label="Подпись" />
-        <button class="btn" disabled={!flagForm.name.trim()}>+ Метка</button>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="bhead"><h2>Счётчики</h2></div>
-      {#each data.counters as c (c.name)}
-        {@const x = scale(c)}
-        <div class="counter">
-          <div class="ctop">
-            <div class="who"><b class="mono">world:{c.name}</b>{#if c.label}<span class="muted small">{c.label}</span>{/if}</div>
-            <div class="value"><span class="mono">{c.value}</span>{#if c.labels[String(c.value)]}<span class="vlabel">{c.labels[String(c.value)]}</span>{/if}</div>
-          </div>
-          <div class="bar" aria-hidden="true">
-            <div class="fill" style="width:{x(c.value)}%"></div>
-            {#each c.thresholds as t}<span class="mark" class:passed={c.value >= t.value} style="left:{x(t.value)}%" title="{t.op}{t.value}: триггер {t.trigger}"><i>{t.value}</i></span>{/each}
-          </div>
-          {#if c.thresholds.length}<div class="muted small">пороги: {c.thresholds.map((t) => `${t.op}${t.value} → ${t.trigger}`).join(" · ")}</div>{/if}
-          <div class="crow">
-            <div class="btns">
-              <button class="btn small" onclick={() => bump(c.name, -1)}>−1</button>
-              <button class="btn small" onclick={() => bump(c.name, 1)}>+1</button>
-              <button class="btn ghost small" onclick={() => (setting = { name: c.name, value: c.value })}>Задать…</button>
-              <button class="btn ghost small" onclick={() => openLabels(c)} title="Подписи значений: акты, уровни тревоги">Подписи…</button>
-            </div>
-            <button class="x" onclick={() => dropCounter(c.name)} title="Удалить счётчик" aria-label="Удалить счётчик">✕</button>
-          </div>
-        </div>
-      {:else}<p class="muted small empty">Счётчиков пока нет.</p>{/each}
-      <form class="add" onsubmit={(e) => { e.preventDefault(); addCounter(); }}>
-        <input class="field mono" placeholder="имя: fragments" bind:value={counterForm.name} aria-label="Имя счётчика" />
-        <input class="field" placeholder="подпись для авторов" bind:value={counterForm.label} aria-label="Подпись" />
-        <button class="btn" disabled={!counterForm.name.trim()}>+ Счётчик</button>
-      </form>
-    </section>
-  </div>
-
-  <section class="card wide">
-    <div class="bhead"><h2>Моменты</h2><button class="btn" onclick={() => editMoment(null)}>+ Момент</button></div>
-    <p class="muted small">Событие в игровом времени. Пока идёт, стоит метка <code>world:имя</code>: на неё открываются узлы и файлы, а триггер с условием <code>world:имя</code> срабатывает на начале, с <code>not world:имя</code> — на конце.</p>
-    {#each data.moments as m (m.id)}
-      <div class="trigger" class:off={!m.active}>
-        <div class="tmain">
-          <div class="line1"><b class="mono">{m.name}</b>{#if m.title}<span> · {m.title}</span>{/if}{#if m.label}<span class="muted"> · {m.label}</span>{/if}
-            {#if m.in_list || m.ticker || m.toast}<span class="badge">{[m.in_list ? "at" : "", m.ticker ? "строка" : "", m.toast ? "уведомление" : ""].filter(Boolean).join(" · ")}{(m.ticker || m.toast) && m.warn ? `, за ${m.warn} мин` : ""}</span>{:else}<span class="badge">скрытый</span>{/if}
-            <span class="state" class:live={m.running} class:wait={!m.running}>{m.running ? `идёт до ${inZone(m.ends_at, m.time_zone)}` : m.next_at ? `${inZone(m.next_at, m.time_zone)} · ${until(m.next_real)}` : "больше не наступит"}</span></div>
-          <div class="muted small">{m.summary || m.schedule} · {m.duration} мин{m.time_zone !== "UTC" ? ` · ${m.time_zone}` : ""} · видят: {audience(m)}</div>
-        </div>
-        <div class="tacts">
-          <button class="btn ghost small" onclick={() => startStop(m)}>{m.running ? "Закончить" : "Начать сейчас"}</button>
-          <button class="btn ghost small" onclick={() => editMoment(m)}>Изменить</button>
-          <button class="btn ghost small danger" onclick={() => dropMoment(m)}>Удалить</button>
-        </div>
+  <section class="block" aria-labelledby="h-vars">
+    <h2 id="h-vars">Переменные <span class="count">{rows.length}</span></h2>
+    {#if rows.length}
+      <div class="tablewrap">
+        <table class="grid">
+          <thead><tr><th scope="col">Имя</th><th scope="col">Значение</th><th scope="col">Пороги</th><th scope="col">В сценариях</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
+          <tbody>
+            {#each rows as r (r.kind + ":" + r.name)}
+              <tr>
+                <td class="name">
+                  <code>world:{r.name}</code>
+                  <span class="muted small">{r.kind === "flag" ? "метка" : "счётчик"}{r.label ? ` · ${r.label}` : ""}</span>
+                </td>
+                <td class="value">
+                  {#if r.flag}
+                    {@const f = r.flag}
+                    <Switch checked={f.on} label={f.on ? "стоит" : "снята"} onchange={(next) => setFlag(f.name, next, f.label)} />
+                    {#if f.changed_at}<span class="muted small" title="{f.changed_by}">{when(f.changed_at)}</span>{/if}
+                  {:else if r.counter}
+                    {@const c = r.counter}
+                    <span class="stepper">
+                      <button class="btn ghost" onclick={() => bump(c.name, -1)} aria-label="Уменьшить world:{c.name} на 1"><Icon name="minus" size={14} /></button>
+                      {#if editing?.name === c.name}
+                        <input class="field num" type="number" bind:value={editing.value} use:focusOnMount aria-label="Значение world:{c.name}"
+                               onkeydown={(e) => { if (e.key === "Enter") commitEdit(); else if (e.key === "Escape") editing = null; }} onblur={() => (editing = null)} />
+                      {:else}
+                        <button class="numbtn" onclick={() => (editing = { name: c.name, value: c.value })} title="Задать значение" aria-label="world:{c.name} = {c.value}. Задать значение">{c.value}</button>
+                      {/if}
+                      <button class="btn ghost" onclick={() => bump(c.name, 1)} aria-label="Увеличить world:{c.name} на 1"><Icon name="plus" size={14} /></button>
+                    </span>
+                    {#if c.labels[String(c.value)]}<span class="vlabel">{c.labels[String(c.value)]}</span>{/if}
+                  {/if}
+                </td>
+                <td class="thr">
+                  {#if r.counter && r.counter.thresholds.length}
+                    {#each r.counter.thresholds as t (t.op + t.value + t.trigger)}<span class="chip" class:hit={r.counter.value >= t.value} title="Триггер {t.trigger}">{t.op}{t.value} → {t.trigger}</span>{/each}
+                  {:else}<span class="muted">—</span>{/if}
+                </td>
+                <td class="uses">
+                  {#each place(uses[r.name]).slice(0, 2) as u (u.id)}<a class="chip link" href="#/world/scenario/{u.id}/flow">{u.title}</a>{/each}
+                  {#if place(uses[r.name]).length > 2}<span class="muted small" title={place(uses[r.name]).slice(2).map((u) => u.title).join(", ")}>+{place(uses[r.name]).length - 2}</span>{/if}
+                  {#if !place(uses[r.name]).length}<span class="muted" title="Ни один сценарий не называет эту переменную">—</span>{/if}
+                </td>
+                <td class="acts">
+                  {#if r.counter}<button class="btn ghost" onclick={() => openLabels(r.counter!)} aria-label="Подписи значений world:{r.name}" title="Подписи значений: акты, уровни тревоги"><Icon name="pencil" size={14} /></button>{/if}
+                  <button class="btn ghost danger" onclick={() => (r.flag ? dropFlag(r.name) : dropCounter(r.name))} aria-label="Удалить world:{r.name}" title="Удалить"><Icon name="trash" size={14} /></button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
-    {:else}<p class="muted small empty">Моментов нет.</p>{/each}
+    {:else if query}
+      <p class="muted small">Ничего не нашлось по «{query}».</p>
+    {:else}
+      <p class="muted small">Переменных пока нет. Метка — да или нет («дверь открыта»), счётчик — число («собрано фрагментов»).</p>
+    {/if}
   </section>
 
-  <section class="card wide">
-    <div class="bhead"><h2>Триггеры</h2><button class="btn" onclick={() => editTrigger(null)}>+ Триггер</button></div>
-    {#each data.triggers as t (t.id)}
-      {@const st = triggerState(t)}
-      <div class="trigger" class:off={!t.active}>
-        <div class="tmain">
-          <div class="line1"><b class="mono">{t.name}</b>{#if t.label}<span class="muted"> · {t.label}</span>{/if}{#if t.repeat}<span class="badge">повторный</span>{/if}<span class="state {st.cls}">{st.text}</span></div>
-          <div class="cond">когда <code>{t.condition_text}</code></div>
-          <div class="muted small">→ {(t.actions as Act[]).map(describe).join(", ")}</div>
-        </div>
-        <div class="tacts">
-          <button class="btn ghost small" onclick={() => editTrigger(t)}>Изменить</button>
-          <button class="btn ghost small" onclick={() => fire(t)}>Запустить сейчас</button>
-          {#if t.fired_count && !t.repeat}<button class="btn ghost small" onclick={() => reset(t)} title="Сработает ещё раз, когда условие снова станет верным">Сбросить</button>{/if}
-          <button class="btn ghost small danger" onclick={() => dropTrigger(t)}>Удалить</button>
-        </div>
+  <section class="block" aria-labelledby="h-triggers">
+    <div class="bhead"><h2 id="h-triggers">Триггеры <span class="count">{data.triggers.length}</span></h2><button class="btn" onclick={() => editTrigger(null)}>+ Триггер</button></div>
+    {#if data.triggers.length}
+      <div class="tablewrap">
+        <table class="grid">
+          <thead><tr><th scope="col">Имя</th><th scope="col">Когда</th><th scope="col">Что делает</th><th scope="col">Состояние</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
+          <tbody>
+            {#each data.triggers as t (t.id)}
+              {@const st = triggerState(t)}
+              <tr class:off={!t.active}>
+                <td class="name"><code>{t.name}</code>{#if t.label}<span class="muted small">{t.label}</span>{/if}{#if t.repeat}<span class="muted small">повторный</span>{/if}</td>
+                <td><code class="cond">{t.condition_text}</code></td>
+                <td class="small">{(t.actions as Act[]).map(describe).join(", ")}</td>
+                <td><span class="state {st.cls}">{st.text}</span></td>
+                <td class="acts">
+                  <button class="btn ghost" onclick={() => editTrigger(t)} aria-label="Изменить триггер {t.name}" title="Изменить"><Icon name="pencil" size={14} /></button>
+                  <button class="btn ghost" onclick={() => fire(t)} aria-label="Запустить {t.name} сейчас" title="Запустить сейчас"><Icon name="zap" size={14} /></button>
+                  {#if t.fired_count && !t.repeat}<button class="btn ghost" onclick={() => reset(t)} aria-label="Сбросить {t.name}" title="Сработает ещё раз, когда условие снова станет верным"><Icon name="redo" size={14} /></button>{/if}
+                  <button class="btn ghost danger" onclick={() => dropTrigger(t)} aria-label="Удалить триггер {t.name}" title="Удалить"><Icon name="trash" size={14} /></button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
-    {:else}<p class="muted small empty">Триггеров нет: мир меняется только руками.</p>{/each}
+    {:else}<p class="muted small">Триггеров нет: мир меняется только руками.</p>{/if}
   </section>
 
-  <section class="card wide">
-    <div class="bhead"><h2>Журнал мира</h2></div>
-    <ol class="log">
+  <section class="block" aria-labelledby="h-moments">
+    <div class="bhead"><h2 id="h-moments">Моменты <span class="count">{data.moments.length}</span></h2><button class="btn" onclick={() => editMoment(null)}>+ Момент</button></div>
+    <p class="muted small">Событие в игровом времени. Пока идёт, стоит метка <code>world:имя</code>: на неё открываются ноды и файлы, а триггер с условием <code>world:имя</code> срабатывает на начале.</p>
+    {#if data.moments.length}
+      <div class="tablewrap">
+        <table class="grid">
+          <thead><tr><th scope="col">Имя</th><th scope="col">Когда</th><th scope="col">Состояние</th><th scope="col">Видят</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
+          <tbody>
+            {#each data.moments as m (m.id)}
+              <tr class:off={!m.active}>
+                <td class="name"><code>{m.name}</code>{#if m.title}<span class="muted small">{m.title}</span>{/if}</td>
+                <td class="small">{m.summary || m.schedule} · {m.duration} мин{m.time_zone !== "UTC" ? ` · ${m.time_zone}` : ""}</td>
+                <td><span class="state" class:live={m.running} class:wait={!m.running}>{m.running ? `идёт до ${inZone(m.ends_at, m.time_zone)}` : m.next_at ? `${inZone(m.next_at, m.time_zone)} · ${until(m.next_real)}` : "больше не наступит"}</span></td>
+                <td class="small muted">{audience(m)}</td>
+                <td class="acts">
+                  <button class="btn ghost" onclick={() => startStop(m)} aria-label="{m.running ? 'Закончить' : 'Начать'} момент {m.name}" title={m.running ? "Закончить" : "Начать сейчас"}><Icon name={m.running ? "stop" : "run"} size={14} /></button>
+                  <button class="btn ghost" onclick={() => editMoment(m)} aria-label="Изменить момент {m.name}" title="Изменить"><Icon name="pencil" size={14} /></button>
+                  <button class="btn ghost danger" onclick={() => dropMoment(m)} aria-label="Удалить момент {m.name}" title="Удалить"><Icon name="trash" size={14} /></button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {:else}<p class="muted small">Моментов нет.</p>{/if}
+  </section>
+
+  <details class="block log">
+    <summary><h2>Журнал мира</h2></summary>
+    <ol>
       {#each data.events as e}<li><span class="muted small mono">{when(e.at)}</span><span>{e.text}</span><span class="muted small">{e.source}</span></li>
       {:else}<li class="muted small">Пока ничего не происходило.</li>{/each}
     </ol>
-  </section>
+  </details>
 {:else}<p class="muted pad">Загрузка…</p>{/if}
+
+{#if varForm}
+  <Dialog title="Новая переменная" confirm="Добавить" {busy} disabled={!varForm.name.trim()} onsubmit={createVar} onclose={() => (varForm = null)}>
+    <div class="form">
+      <fieldset class="kinds"><legend class="label">Что это</legend>
+        <label class="check"><input type="radio" bind:group={varForm.type} value="flag" /> Метка: да или нет («дверь открыта»)</label>
+        <label class="check"><input type="radio" bind:group={varForm.type} value="counter" /> Счётчик: число («собрано фрагментов»)</label>
+      </fieldset>
+      <label><span class="label">Имя</span><input class="field mono" bind:value={varForm.name} placeholder={varForm.type === "flag" ? "core-online" : "fragments"} /></label>
+      <label><span class="label">Подпись для авторов</span><input class="field" bind:value={varForm.label} /></label>
+    </div>
+  </Dialog>
+{/if}
 
 {#if labeling}
   <Dialog title="Подписи значений world:{labeling.name}" confirm="Сохранить" onsubmit={saveLabels} onclose={() => (labeling = null)}>
     <textarea class="field mono" rows="6" bind:value={labeling.text} placeholder={"1 = Тишина\n2 = Архив\n3 = Буря"}></textarea>
     <p class="muted small">По строке: число = подпись. Так счётчик <code>act</code> становится актами: на пульте видно «2 · Архив», а контент акта открывается условием <code>world:act&gt;=2</code>.</p>
-  </Dialog>
-{/if}
-
-{#if setting}
-  <Dialog title="Задать world:{setting.name}" confirm="Задать" onsubmit={setValue} onclose={() => (setting = null)}>
-    <input class="field mono" type="number" bind:value={setting.value} aria-label="Значение" />
-    <p class="muted small">Запишется вкладом автора на разницу. Триггеры проверятся сразу.</p>
   </Dialog>
 {/if}
 
@@ -373,71 +423,67 @@
   </Dialog>
 {/if}
 
+
 <style>
-  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; margin: 12px 32px; align-items: start; }
-  .card { padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .card.wide { margin: 12px 32px; }
-  .bhead { display: flex; justify-content: space-between; align-items: center; }
+  .block { margin: 12px 32px; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .bhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .count { margin-left: 4px; padding: 0 7px; border-radius: 999px; background: var(--raise); color: var(--text); font-size: 11px; letter-spacing: 0; }
   .small { font-size: 12px; }
   .mono { font-family: var(--mono); }
   code { font-family: var(--mono); font-size: 12.5px; }
-  .empty { margin: 0; padding: 4px 0; }
-  .who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .x { border: 0; background: none; color: var(--faint, var(--muted)); cursor: pointer; padding: 0 4px; align-self: flex-start; }
-  .x:hover { color: var(--danger); }
-  .add { display: flex; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line-soft); }
-  .add .field { flex: 1; min-width: 120px; }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .find { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; height: 32px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel); color: var(--muted); }
+  .find input { border: 0; background: transparent; color: var(--text); outline: none; width: 150px; font: inherit; }
+  .find:focus-within { border-color: var(--accent); }
 
-  .flags { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .flags li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 4px; border-radius: var(--radius-s); }
-  .flags li.on b { color: var(--accent); }
-  .switch { position: relative; width: 34px; height: 18px; border: 1px solid var(--line-soft); border-radius: 999px; background: var(--bg); cursor: pointer; padding: 0; }
-  .switch span { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: left 0.12s; }
-  .switch[aria-checked="true"] { background: color-mix(in srgb, var(--accent) 30%, transparent); border-color: var(--accent); }
-  .switch[aria-checked="true"] span { left: 18px; background: var(--accent); }
-
-  .counter { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
-  .ctop { display: flex; justify-content: space-between; gap: 12px; }
-  .value { display: flex; flex-direction: column; align-items: flex-end; font-size: 24px; font-weight: 600; }
-  .vlabel { font-size: 12px; font-weight: 500; color: var(--accent); }
-  .bar { position: relative; height: 8px; margin: 8px 0 14px; border-radius: 999px; background: var(--bg); }
-  .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--accent); }
-  .mark { position: absolute; top: -4px; width: 2px; height: 16px; margin-left: -1px; background: var(--muted); }
-  .mark.passed { background: var(--ok, #4cc38a); }
-  .mark i { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10px; color: var(--muted); }
-  .crow { display: flex; justify-content: space-between; align-items: center; }
-  .btns { display: flex; gap: 4px; }
-
-  .trigger { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: var(--radius); background: var(--bg); }
-  .trigger.off { opacity: 0.6; }
-  .tmain { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
-  .line1 { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-  .badge { padding: 0 6px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11px; }
-  .state { margin-left: auto; padding: 0 8px; border-radius: 999px; font-size: 11px; background: var(--raise); color: var(--muted); }
+  .tablewrap { overflow-x: auto; }
+  table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .grid th { text-align: left; padding: 4px 10px 6px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .grid td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  .grid tr:last-child td { border-bottom: 0; }
+  .grid tbody tr:hover { background: var(--panel-2); }
+  .grid tr.off { opacity: 0.6; }
+  .name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 190px; }
+  .name code { color: var(--text); font-weight: 600; }
+  .value { white-space: nowrap; }
+  .value :global(.switch) { vertical-align: middle; }
+  .stepper { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
+  .stepper .btn { height: 28px; width: 28px; padding: 0; justify-content: center; }
+  .numbtn { min-width: 44px; height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-s); background: transparent; color: var(--text); font: inherit; font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: text; text-align: center; }
+  .numbtn:hover { border-color: var(--line); background: var(--panel-2); }
+  .field.num { width: 64px; height: 28px; padding: 0 6px; text-align: center; font-family: var(--mono); }
+  .vlabel { margin-left: 8px; font-size: 12px; color: var(--accent); }
+  .thr, .uses { max-width: 280px; }
+  .chip { display: inline-block; margin: 1px 4px 1px 0; padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; line-height: 19px; white-space: nowrap; }
+  .chip.hit { color: var(--ok, #4cc38a); }
+  .chip.link { color: var(--text); text-decoration: none; }
+  .chip.link:hover { background: var(--panel-2); text-decoration: underline; }
+  .acts { white-space: nowrap; text-align: right; }
+  .acts .btn { height: 28px; padding: 0 7px; }
+  .cond { white-space: normal; overflow-wrap: anywhere; }
+  .state { display: inline-block; padding: 0 8px; border-radius: 999px; font-size: 11.5px; line-height: 19px; background: var(--raise); color: var(--muted); white-space: nowrap; }
   .state.done { background: color-mix(in srgb, var(--ok, #4cc38a) 15%, transparent); color: var(--ok, #4cc38a); }
   .state.wait { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
   .state.live { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
-  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-  .col2 { display: flex; flex-direction: column; gap: 10px; }
-  .shownin { display: flex; flex-direction: column; gap: 6px; }
-  .tacts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; align-content: flex-start; max-width: 340px; }
 
-  .log { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; display: flex; flex-direction: column; }
-  .log li { display: grid; grid-template-columns: 12ch minmax(0, 1fr) minmax(0, auto); gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+  details.log summary { cursor: pointer; list-style: none; }
+  details.log summary h2 { display: inline; }
+  details.log summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  details.log ol { list-style: none; margin: 10px 0 0; padding: 0; max-height: 320px; overflow: auto; display: flex; flex-direction: column; }
+  details.log li { display: grid; grid-template-columns: 12ch minmax(0, 1fr) minmax(0, auto); gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
 
   .form { display: flex; flex-direction: column; gap: 12px; }
   .form label { display: flex; flex-direction: column; gap: 4px; }
+  .kinds { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
   .label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+  .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .col2 { display: flex; flex-direction: column; gap: 10px; }
+  .shownin { display: flex; flex-direction: column; gap: 6px; }
   .check { flex-direction: row !important; align-items: center; gap: 8px !important; font-size: 13px; }
   .check input { width: auto; }
-  .acts-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-  .act { display: flex; gap: 6px; align-items: flex-start; padding: 6px; border: 1px solid var(--line-soft); border-radius: var(--radius-s); background: var(--bg); }
-  .stack { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .row { display: flex; gap: 6px; }
   textarea { resize: vertical; font: inherit; }
-  .add-act { align-self: flex-start; }
   .pad { padding: 24px 32px; }
-  @media (max-width: 1000px) { .grid { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { .block { margin-left: 16px; margin-right: 16px; } }
 </style>

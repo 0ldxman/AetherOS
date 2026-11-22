@@ -45,3 +45,22 @@ class WorldStateApiTests(TestCase):
         self.assertEqual(self.call("get", "/keys/vault-door.2/recipe")[1]["part_of"], [["vault-door", "2 из 3"]])
         self.assertEqual(self.call("put", "/keys/vault-door/recipe", {"parts": ["vault-door.1"]})[0], 400)
         self.assertEqual(self.call("put", "/keys/vault-door/recipe", {"parts": []})[1]["parts"], [])
+
+
+class UsesTests(TestCase):
+    def setUp(self):
+        from team.testing import full_role
+
+        self.boss = get_user_model().objects.create_user("boss", is_staff=True, role=full_role())
+        self.client.force_login(self.boss)
+
+    def test_names_are_found_in_scenarios_by_value_or_condition(self):
+        from graph.models import Graph
+
+        self.client.post("/studio/api/world/state/flags", {"name": "core-online", "label": "", "on": False}, content_type="application/json")
+        self.client.post("/studio/api/world/state/counters", {"name": "fragments", "label": ""}, content_type="application/json")
+        Graph.objects.create(slug="a", title="Alpha", doc={"nodes": [{"id": "n", "type": "do:world_flag", "data": {"name": "core-online"}}], "wires": []})
+        Graph.objects.create(slug="b", title="Beta", doc={"nodes": [{"id": "c", "type": "check", "data": {"condition": "world:fragments>=7 and tag:x"}}], "wires": []})
+        Graph.objects.create(slug="c", title="Gamma", doc={"nodes": [{"id": "t", "type": "note", "data": {"text": "nothing here"}}], "wires": []})
+        found = self.client.get("/studio/api/world/state/uses").json()
+        self.assertEqual({name: [g["title"] for g in graphs] for name, graphs in found.items()}, {"core-online": ["Alpha"], "fragments": ["Beta"]})

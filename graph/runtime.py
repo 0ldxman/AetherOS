@@ -1153,8 +1153,10 @@ def _placement_act(run, doc, node_id, kind):
     keys = [str(k) for k in _as_list(raw) if str(k or "").strip()]
     create = kind.name == "act:placement.create"
     if create and not keys and not many:
-        user, machine = entities._player(run, entities._key(data.get("player"))), entities._machine(entities._key(data.get("machine")))
-        found = [(user, machine, _fill(str(data.get("path") or ""), run, keep=("login",)))] if user is not None and machine is not None else [None]
+        machine = entities._machine(entities._key(data.get("machine")))
+        path = _fill(str(data.get("path") or ""), run, keep=("login",))
+        who = [entities._key(one) for one in _as_list(data.get("player"))] or [""]                      # игрок или список игроков; пусто — инициатор
+        found = [(user, machine, path) if user is not None and machine is not None else None for user in (entities._player(run, key) for key in who)]
     else:
         found = [entities.parse_placement(key, run) for key in keys]
     item = None
@@ -1340,13 +1342,14 @@ def _machine_act(run, node_id, kind, data):
                     edits.delete(profile)
                 elif kind.name == "act:account.access":
                     everyone = data.get("scope") == "all"
-                    user = None if everyone else entities._player(run, entities._key(data.get("player")))
-                    if not everyone and user is None:
+                    users = [None] if everyone else [entities._player(run, entities._key(one)) for one in (_as_list(data.get("player")) or [""])]       # игрок или список игроков
+                    if not everyone and any(one is None for one in users):
                         raise edits.EditError("нет игрока: «игроку» без игрока")
-                    if (mode or "block") == "block":
-                        edits.block(profile, user, number("minutes") or 10, fill("text"))
-                    else:
-                        edits.unblock(profile, user, everyone=everyone)
+                    for user in users:
+                        if (mode or "block") == "block":
+                            edits.block(profile, user, number("minutes") or 10, fill("text"))
+                        else:
+                            edits.unblock(profile, user, everyone=everyone)
                 else:
                     mode = mode or "mail"
                     if mode == "mail":
@@ -1467,6 +1470,21 @@ def _execute(run, doc, node_id, sock):
         payload = data.get("payload") if isinstance(data.get("payload"), dict) else (run.state or {}).get("data") or {}
         emit(N.SIGNAL_EVENT, run.user, source=f"сценарий {run.graph.slug}", signal=str(data.get("name") or ""), scope=data.get("scope") or "scenario",
              graph=run.graph_id, run=run.id, sender=run.user.get_username() if run.user is not None else "", payload=_clean(payload))
+        scope = dict(N.SIGNAL_SCOPES).get(data.get("scope") or "scenario", "")
+        journal.note(run.graph, "signal", f"Сигнал «{data.get('name') or ''}»: {scope}", journal.name_of(run.user), node_id, run)
+        return ["next"]
+    if name == "notify":
+        from django.contrib.auth import get_user_model
+
+        from team import notify
+
+        text = _fill(str(data.get("text") or ""), run).strip()
+        if text:
+            names = [str(one).strip().lower() for one in _as_list(data.get("to")) if str(one).strip()]
+            stamp = timezone.now().strftime("%Y%m%d%H%M%S%f")
+            for author in get_user_model().objects.filter(is_staff=True, is_active=True):
+                if not names or author.get_username().lower() in names:
+                    notify.send(author, "scenario", f"«{run.graph.title}»: {text}", f"#/world/scenario/{run.graph_id}/journal", f"scenario:{run.pk}:{node_id}:{stamp}")
         return ["next"]
     if name == "journal":
         text = _fill(str(data.get("text") or ""), run).strip()

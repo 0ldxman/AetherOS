@@ -128,6 +128,11 @@ class WsState(Schema):
     game_now: datetime
 
 
+class WsUse(Schema):
+    id: int
+    title: str
+
+
 class WsFlagIn(Schema):
     name: str
     label: str = ""
@@ -195,6 +200,39 @@ def _trigger(row):
     return WsTrigger(id=row.pk, name=row.name, label=row.label, condition=row.condition, condition_text=format_condition(row.condition),
                      actions=row.actions or [], repeat=row.repeat, active=row.active, was_true=row.was_true, fired_at=row.fired_at,
                      fired_count=row.fired_count)
+
+
+def _strings(value):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item)
+
+
+@router.get("/uses", response=dict[str, list[WsUse]])
+def uses(request):
+    """В каких сценариях встречается имя переменной мира: как значение поля ноды или внутри условия world:имя. Грубо, по тексту графа."""
+    import re
+
+    from graph.models import Graph
+
+    names = {name for kind in (values.TAG, values.COUNT) for name, _, _ in _world(kind)}
+    found = {}
+    for graph in Graph.objects.filter(owner="").only("id", "title", "doc").order_by("title"):
+        hit = set()
+        for text in _strings(graph.doc):
+            if len(text) > 600:
+                continue
+            if text in names:
+                hit.add(text)
+            hit.update(name for name in re.findall(r"world:([\w-]+)", text) if name in names)
+        for name in hit:
+            found.setdefault(name, []).append(WsUse(id=graph.pk, title=graph.title))
+    return found
 
 
 @router.get("", response=WsState)

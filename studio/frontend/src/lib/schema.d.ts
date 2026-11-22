@@ -4323,6 +4323,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/state/uses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Uses
+         * @description В каких сценариях встречается имя переменной мира: как значение поля ноды или внутри условия world:имя. Грубо, по тексту графа.
+         */
+        get: operations["studio_api_worldstate_uses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state": {
         parameters: {
             query?: never;
@@ -11269,6 +11289,13 @@ export interface components {
             actions: {
                 [key: string]: unknown;
             }[];
+        };
+        /** WsUse */
+        WsUse: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
         };
         /** WsCounter */
         WsCounter: {
@@ -19839,6 +19866,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChErrors"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_uses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: components["schemas"]["WsUse"][];
+                    };
                 };
             };
         };

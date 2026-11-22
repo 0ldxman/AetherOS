@@ -692,6 +692,8 @@ register(Kind("scenario", "Сценарий", STRUCT, "{graph}", (Field("graph",
 register(Kind("launch", "Запустить сценарий", STRUCT, "{graph}",
               (Field("graph", "Сценарий", "graph", "", True), Field("socket", "Вход сценария", "text", "первый")),
               (Sock("next", "Дальше"), Sock("fail", "Не вышло"))))
+register(Kind("notify", "Уведомить авторов", STRUCT, "{text}",
+              (Field("text", "Сообщение", "text", "игрок дошёл до сейфа", True), Field("to", "Кому", "many:text", "все авторы; или логины")), (Sock("next", "Поток"),)))
 register(Kind("journal", "Журнал: Записать", STRUCT, "{text}", (Field("text", "Запись", "text", "дошёл до сейфа", True),), (Sock("next", "Поток"),)))
 register(Kind("send_signal", "Послать сигнал", STRUCT, "{name}",
               (Field("name", "Название", "text", "bunker-open", True),
@@ -906,7 +908,7 @@ register(Kind("act:placement", "Размещение: Изменить", ACTION,
 DATA_OUTS["act:placement"] = (Sock("placement", "Размещение", "many:placement"),)
 register(Kind("act:placement.create", "Размещение: Создать", ACTION, "{item} {path}", (
     Field("placement", "Куда", "many:placement", "игрок@машина:/путь"), Field("machine", "Машина", "machine"),
-    Field("path", "Путь", "path", "/home/{login}/note.txt; ключ — пусто: в секреты"), Field("player", "Игрок", "player", "инициатор"),
+    Field("path", "Путь", "path", "/home/{login}/note.txt; ключ — пусто: в секреты"), Field("player", "Игрок", "many:player", "инициатор"),
     Field("item", "Объект", "object", "нет — свой файл с текстом"), Field("text", "Текст", "textarea", "подстановки {host}, {login}, {path}…"),
 ), _ACT_OUTS, covers={"placement": ("machine", "path", "player"), "item": ("text",)}, titled={"item": "Размещение: Добавить"},
     follows={"placement": "placement"}))
@@ -966,7 +968,7 @@ DATA_OUTS["act:account.change"] = (Sock("token", "Токен", "many:text"),)
 register(Kind("act:account.access", "Учётка: Блокировка", ACTION, "{account}", (
     Field("variant", "Действие", "select", "", False, (("block", "Заблокировать учётку"), ("unblock", "Разблокировать учётку"))),
     Field("account", "Учётка", "many:account", "логин@хост", True),
-    Field("scope", "Кому", "select", "", False, (("player", "игроку"), ("all", "всем"))), Field("player", "Игрок", "player", "инициатор"),
+    Field("scope", "Кому", "select", "", False, (("player", "игроку"), ("all", "всем"))), Field("player", "Игрок", "many:player", "инициатор"),
     Field("minutes", "На сколько, мин", "number", "10"), Field("text", "Текст блокировки", "text", ""),
 ), _ACT_OUTS, title="variant", when={"player": ("scope", ("player",)), "minutes": ("variant", ("block",)), "text": ("variant", ("block",))}))
 register(Kind("act:account.manage", "Учётка: Создать или удалить", ACTION, "{login}{account}", (
@@ -1153,6 +1155,7 @@ HELP = {
     "group_out": "Выход группы или сценария: сокеты справа у ноды группы.",
     "scenario": "Другой сценарий целиком, как группа. Идёт в ходах этого сценария; его старты здесь не срабатывают.",
     "launch": "Запустить другой сценарий: новый ход с игроком этого хода, не дожидаясь его.",
+    "notify": "Уведомление авторам на Главной Студии (с ссылкой на журнал сценария): «игрок дошёл до сейфа». Кому: пусто — всем авторам, или логины. В тексте работают подстановки {player}, {host}, {login}, {path}…",
     "journal": "Авторская запись в журнал сценария (вкладка «Журнал» страницы сценария): когда нода выполняется, в журнал пишется этот текст (подстановки {player}, {host}, {login}, {path}… работают) и кто инициатор. Так отмечают важные места сюжета.",
     "on:session": "Игрок вошёл на учётку или вышел с неё (закрыл подключение, его выбросили или срок вышел). Фильтры: машина, учётка (*).",
     "send_signal": "Послать сигнал: будит ноды «Сигнал» с тем же названием. «Куда»: «Этот сценарий» — все потоки сценария, «Эта ветка» — только ждущие этого же потока, «Мир» — любой сценарий. "
