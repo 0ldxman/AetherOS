@@ -1,5 +1,5 @@
 """Шина событий. Механика сообщает, что случилось: emit("key.got", user, machine=…, login=…, slug=…). Событие пишется в ленту
-(engine.models.Event) — из неё журнал игрока; дальше на события встанут правила. Отправка события никогда не ломает игру.
+(engine.models.Event) — из неё журнал игрока; дальше на события встают сценарии. Отправка события никогда не ломает игру.
 
 Имена событий (NAMES) — словарь для журнала и Студии; новое событие добавляется сюда же.
 """
@@ -107,7 +107,7 @@ def _clean(value):
 
 
 def emit(name, user=None, *, machine=None, login="", source="", **data):
-    """Записать событие и разбудить правила и сценарии. machine — объект машины или имя хоста. Возвращает событие или None, если записать не вышло."""
+    """Записать событие и разбудить сценарии. machine — объект машины или имя хоста. Возвращает событие или None, если записать не вышло."""
     from engine.models import Event
 
     if user is not None and not getattr(user, "is_authenticated", False):
@@ -120,24 +120,11 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
         log.exception("emit %s failed", name)
         return None
     try:
-        from engine import rules
-
-        rules.dispatch(event)
-    except Exception:                                   # noqa: BLE001 — сломанное правило не роняет игру; причина в логе
-        log.exception("rules on %s failed", name)
-    try:
         from graph import runtime
 
         runtime.dispatch(event)
     except Exception:                                   # noqa: BLE001 — сломанный сценарий не роняет игру
         log.exception("graph on %s failed", name)
-    if user is not None:
-        try:
-            from engine import chains
-
-            chains.update(user)
-        except Exception:                               # noqa: BLE001 — отметки цепочек не роняют игру
-            log.exception("chains on %s failed", name)
     return event
 
 
@@ -145,16 +132,14 @@ _heard = {"at": 0.0, "names": frozenset()}
 
 
 def heard(name):
-    """Слушает ли событие хоть один сценарий или правило (для частых событий вроде command.run: не писать их зря)."""
+    """Слушает ли событие хоть один сценарий (для частых событий вроде command.run: не писать их зря)."""
     import time
 
     if time.monotonic() - _heard["at"] > 10:
-        from engine.models import Rule
         from graph.models import Start, Wait
 
         names = set(Start.objects.filter(graph__active=True).values_list("event", flat=True))
         names |= set(Wait.objects.filter(kind="event").values_list("event", flat=True))
-        names |= set(Rule.objects.filter(active=True).values_list("on", flat=True))
         _heard.update(at=time.monotonic(), names=frozenset(names))
     return name in _heard["names"]
 

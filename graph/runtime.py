@@ -355,7 +355,7 @@ def _box(run):
 def _facts(run):
     if run.user is None:
         return frozenset()
-    from engine.chains import player_facts
+    from engine.facts import player_facts
 
     return player_facts(run.user)
 

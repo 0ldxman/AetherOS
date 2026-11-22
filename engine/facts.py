@@ -104,3 +104,17 @@ def compare(text, keys):
 def is_key(text):
     """Строка условия — это ключ, а не тег, счётчик или метка мира."""
     return isinstance(text, str) and not text.startswith(PREFIXES)
+
+
+def player_facts(user):
+    """Ключи всех учёток игрока (что лежит в их связках) и его теги и счётчики: набор для проверки условий."""
+    from filesystem import keystore
+    from filesystem.machine_view import view_for
+    from machines.models import MachineProfile
+
+    keys = set()
+    for profile in MachineProfile.objects.filter(user=user).select_related("machine"):
+        if keystore.secrets_dir(profile.machine, profile.login):
+            view = view_for(profile.machine, user, login=profile.login)
+            keys.update(slug for _, slug in keystore.held(view, profile.machine, profile.login))
+    return of(user, keys)

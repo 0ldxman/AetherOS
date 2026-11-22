@@ -13,7 +13,7 @@ SPOILER = re.compile(r"^::spoiler[ \t]+(.+?)[ \t]*$", re.M)
 
 @dataclass(frozen=True)
 class Place:
-    what: str          # «вариант письма», «раздел форума», «правило»…
+    what: str          # «вариант письма», «раздел форума», «триггер»…
     label: str
     href: str = ""     # адрес в Студии (#/…)
 
@@ -62,7 +62,6 @@ def atoms(condition):
 def _requirements():
     """[(вид, имя, Place)] по всем местам с условиями."""
     from air.models import Band, Broadcast, Responder
-    from engine.models import Rule
     from filesystem.models import Item, Placement, Volume
     from forum.models import Section, Space
     from machines.models import MachineProfile
@@ -105,17 +104,6 @@ def _requirements():
         add(row.condition, Place("момент", row.name, "#/world/state"))
     for row in WorldLetter.objects.exclude(condition=None).select_related("item"):
         add(row.condition, Place("письмо всем", row.item.slug, ""))
-    for row in Rule.objects.all():
-        place = Place("правило", row.name, "")
-        add(row.condition, place)
-        watched = {"key.got": "key", "key.joined": "key", "world.flag": "world", "world.counter": "counter"}.get(row.on)
-        name = (row.match or {}).get({"key": "slug", "world": "flag", "counter": "counter"}.get(watched, ""), "")
-        if watched and name and not any(ch in str(name) for ch in "*?["):
-            out.append((watched, str(name), Place("правило ждёт", row.name, "")))
-    from engine.models import ChainStep
-
-    for step in ChainStep.objects.select_related("chain"):
-        add(step.condition, Place("шаг цепочки", f"{step.chain.title}: {step.title}", ""))
     for part in KeyPart.objects.select_related("recipe__result", "item"):
         out.append(("key", part.item.slug, Place("сборка ключа", f"часть {part.recipe.result.slug}", f"#/items/{part.recipe.result_id}")))
     out += _spoilers()
@@ -144,7 +132,6 @@ def _spoilers():
 def _action_lists():
     """[(действия, Place)] всех мест с действиями."""
     from air.models import Responder
-    from engine.models import Rule
     from world.models import WorldTrigger
 
     out = []
@@ -152,8 +139,6 @@ def _action_lists():
         out.append((row.actions, Place("ответчик эфира", str(row), "#/air")))
     for row in WorldTrigger.objects.all():
         out.append((row.actions, Place("триггер", row.name, "#/world/state")))
-    for row in Rule.objects.all():
-        out.append((row.actions, Place("правило", row.name, "")))
     return out
 
 

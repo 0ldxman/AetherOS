@@ -4,7 +4,6 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from engine import links
-from engine.models import Rule
 from filesystem.models import Item, ItemKey
 from filesystem.testing import key_item
 from forum.models import Section, Space
@@ -25,7 +24,7 @@ class LinksTests(TestCase):
         Section.objects.create(space=self.space, title="Inner", read_if="mask")
         found = row("key", "mask")
         self.assertEqual((found.level, [p.what for p in found.required]), ("error", ["раздел форума"]))
-        Rule.objects.create(name="give-mask", on="machine.login", actions=[{"do": "key", "slug": "mask"}])
+        WorldTrigger.objects.create(name="give-mask", condition="world:open", actions=[{"do": "key", "slug": "mask"}])
         self.assertEqual(row("key", "mask").level, "ok")
 
     def test_hidden_keys_count_as_a_source_and_unused_ones_are_noted(self):
@@ -39,9 +38,9 @@ class LinksTests(TestCase):
         self.assertEqual(row("key", "ghost").problem, "такого ключа нет в реестре")
 
     def test_player_flags_from_actions(self):
-        Rule.objects.create(name="door", on="file.read", condition="tag:met-guard", actions=[])
+        WorldTrigger.objects.create(name="door", condition="tag:met-guard", actions=[])
         self.assertEqual(row("flag", "met-guard").level, "error")
-        Rule.objects.create(name="meet", on="mail.sent", actions=[{"do": "flag", "name": "met-guard"}])
+        WorldTrigger.objects.create(name="meet", condition="world:met", actions=[{"do": "flag", "name": "met-guard"}])
         self.assertEqual(row("flag", "met-guard").level, "ok")
 
     def test_world_flags_from_moments_or_only_by_hand(self):
