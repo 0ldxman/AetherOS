@@ -93,11 +93,21 @@ def _tree(request, create=True):
     return tree
 
 
+def announce_left(user, rows):
+    """Сессии закрыты: событие «вышел» по каждой (для ноды «Сессия: Вход и выход»)."""
+    from engine.events import emit
+
+    for row in rows:
+        emit("machine.logout", user, machine=row.profile.machine, login=row.profile.login, via=row.via)
+
+
 def _save(request, tree):
     """Записать дерево: закрытые узлы удаляются, у оставшихся — папка, рабочий стол, срок; указатели рабочего места."""
     gone = [int(key) for key in tree.get("_was", ()) if key not in tree["nodes"]]
     if gone:
+        rows = [row for row in (tree.get("_rows") or {}).values() if row.pk in gone]
         Session.objects.filter(user=request.user, pk__in=gone).delete()
+        announce_left(request.user, rows)
     for key, node in tree["nodes"].items():
         Session.objects.filter(pk=int(key)).update(cwd=node.get("cwd") or HOME, desk=bool(node.get("desk")), deadline=node.get("deadline"))
     Workplace.objects.filter(user=request.user).update(desktop_id=int(tree["desktop"]), terminal_id=int(tree["terminal"]))

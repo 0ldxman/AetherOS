@@ -8,7 +8,7 @@ from graph.models import Entry
 log = logging.getLogger(__name__)
 
 KEEP = 1500                      # записей на сценарий: старые стираются
-KINDS = {"start": "Старт", "stage": "Этап", "control": "Пульт", "branch": "Ветка", "crew": "Группа", "end": "Конец", "reset": "Сброс", "switch": "Включение"}
+KINDS = {"note": "Запись", "start": "Старт", "stage": "Этап", "control": "Пульт", "branch": "Ветка", "crew": "Группа", "end": "Конец", "reset": "Сброс", "switch": "Включение"}
 
 
 def name_of(user):

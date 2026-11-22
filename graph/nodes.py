@@ -358,6 +358,9 @@ _when("on:machine.status", "Машина: Статус изменён", (_MACHIN
        Sock("maintenance_off", "Обслуживание кончилось")),
       {"stopped": "machine.stopped", "started": "machine.started", "maintenance_on": "machine.maintenance.started",
        "maintenance_off": "machine.maintenance.ended"}, _match(machine=("host", "thing")), (_HOST_OUT,), "{machine}")
+_when("on:session", "Сессия: Вход и выход", (_MACHINE, Field("login", "Учётка", "text", "любая; можно *")),
+      (Sock("in", "Вошёл"), Sock("out", "Вышел")), {"in": "machine.login", "out": "machine.logout"}, _match(machine=("host", "thing"), login=("login", "glob")),
+      (_HOST_OUT, _LOGIN_OUT), "{login}")
 _when("on:terminal.command", "Терминал: Введена команда",
       (_MACHINE, Field("command", "Команда", "text", "любая; можно *"), Field("args", "Аргументы", "text", "любые; можно *")),
       (Sock("run", "Введена"),), {"run": "command.run"}, _match(machine=("host", "thing"), command=("command", "glob"), args=("args", "glob")),
@@ -689,6 +692,7 @@ register(Kind("scenario", "Сценарий", STRUCT, "{graph}", (Field("graph",
 register(Kind("launch", "Запустить сценарий", STRUCT, "{graph}",
               (Field("graph", "Сценарий", "graph", "", True), Field("socket", "Вход сценария", "text", "первый")),
               (Sock("next", "Дальше"), Sock("fail", "Не вышло"))))
+register(Kind("journal", "Журнал: Записать", STRUCT, "{text}", (Field("text", "Запись", "text", "дошёл до сейфа", True),), (Sock("next", "Поток"),)))
 register(Kind("send_signal", "Послать сигнал", STRUCT, "{name}",
               (Field("name", "Название", "text", "bunker-open", True),
                Field("scope", "Куда", "select", "", False, SIGNAL_SCOPES), Field("payload", "Данные", "data")),
@@ -1149,6 +1153,8 @@ HELP = {
     "group_out": "Выход группы или сценария: сокеты справа у ноды группы.",
     "scenario": "Другой сценарий целиком, как группа. Идёт в ходах этого сценария; его старты здесь не срабатывают.",
     "launch": "Запустить другой сценарий: новый ход с игроком этого хода, не дожидаясь его.",
+    "journal": "Авторская запись в журнал сценария (вкладка «Журнал» страницы сценария): когда нода выполняется, в журнал пишется этот текст (подстановки {player}, {host}, {login}, {path}… работают) и кто инициатор. Так отмечают важные места сюжета.",
+    "on:session": "Игрок вошёл на учётку или вышел с неё (закрыл подключение, его выбросили или срок вышел). Фильтры: машина, учётка (*).",
     "send_signal": "Послать сигнал: будит ноды «Сигнал» с тем же названием. «Куда»: «Этот сценарий» — все потоки сценария, «Эта ветка» — только ждущие этого же потока, «Мир» — любой сценарий. "
                     "«Данные» (необязательно) уходят вместе с сигналом, без провода — данные потока. Сигнал нигде не хранится: его слышат только те, кто уже ждёт.",
     "stage": "Отметка хода: счётчик «прошли» на холсте.",

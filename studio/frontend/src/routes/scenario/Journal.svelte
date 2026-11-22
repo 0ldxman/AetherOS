@@ -16,7 +16,7 @@
     { key: "branch", label: "Ветки" },
     { key: "crew", label: "Группы" },
   ];
-  const KINDS: Record<string, string> = { start: "Старт", stage: "Этап", control: "Пульт", branch: "Ветка", crew: "Группа", end: "Конец", reset: "Сброс", switch: "Включение" };
+  const KINDS: Record<string, string> = { note: "Запись", start: "Старт", stage: "Этап", control: "Пульт", branch: "Ветка", crew: "Группа", end: "Конец", reset: "Сброс", switch: "Включение" };
 
   let kind = $state("");
   let entries = $state<Entry[]>([]);

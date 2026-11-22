@@ -1468,6 +1468,11 @@ def _execute(run, doc, node_id, sock):
         emit(N.SIGNAL_EVENT, run.user, source=f"сценарий {run.graph.slug}", signal=str(data.get("name") or ""), scope=data.get("scope") or "scenario",
              graph=run.graph_id, run=run.id, sender=run.user.get_username() if run.user is not None else "", payload=_clean(payload))
         return ["next"]
+    if name == "journal":
+        text = _fill(str(data.get("text") or ""), run).strip()
+        if text:
+            journal.note(run.graph, "note", text, journal.name_of(run.user), node_id, run)
+        return ["next"]
     if name == "launch":
         return [_launch(run, data)]
     if name == "answer":

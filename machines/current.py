@@ -83,7 +83,12 @@ def sign_in(user, session):
 
     if session is None:
         return
-    Session.objects.filter(user=user).exclude(pk=session.pk).delete()
+    others = list(Session.objects.filter(user=user).exclude(pk=session.pk).select_related("profile__machine"))
+    Session.objects.filter(pk__in=[row.pk for row in others]).delete()
+    if others:
+        from machines.network.bridge import announce_left
+
+        announce_left(user, others)
     Session.objects.filter(pk=session.pk).update(parent=None, via=Session.Via.LOCAL, desk=True, deadline=None)
     Workplace.objects.update_or_create(user=user, defaults={"desktop": session, "terminal": session})
 
