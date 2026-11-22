@@ -793,7 +793,7 @@ def value_of(run, doc, node_id, out, depth=0):
         return _plain(_number(get("value")) or 0)
     if name == "boolean":
         return _truth(get("value"))
-    if name in ("time.get", "time.calc", "time.zone", "time.parts"):
+    if name in ("time.get", "time.calc", "time.zone"):
         from graph import times
 
         if name == "time.get":
@@ -802,12 +802,7 @@ def value_of(run, doc, node_id, out, depth=0):
             if out == "diff":
                 return times.diff(get("a") or "сейчас", get("b"), data.get("unit") or "seconds")
             return times.shift(get("a") or "сейчас", *(_number(get(part)) or 0 for part in ("days", "hours", "minutes", "seconds")))
-        if name == "time.zone":
-            return times.in_zone(get("value") or "сейчас", get("zone"))
-        from graph import entities
-
-        machine = entities._machine(entities._key(get("machine")))
-        return times.parts(get("value") or "сейчас", machine).get(out, 0)
+        return times.in_zone(get("value") or "сейчас", get("zone"))
     if name == "compare":
         a, b, op = get("a"), get("b"), data.get("op") or "eq"
         na, nb = _number(a), _number(b)

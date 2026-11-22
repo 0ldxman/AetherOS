@@ -292,3 +292,26 @@ def start_repeat(doc):
         if isinstance(group, dict):
             changed = _repeat_level(group) or changed
     return changed
+
+
+def _parts_level(level):
+    changed = False
+    for node in (level or {}).get("nodes") or []:
+        if isinstance(node, dict) and node.get("type") == "time.parts":
+            data = node.setdefault("data", {})
+            node["type"] = "time.get"
+            data["source"] = "other" if str(data.get("value") or "").strip() else "now"        # «Части» стали выходами «Времени» (пояс машины — через «Временную зону»)
+            data.pop("machine", None)
+            changed = True
+    return changed
+
+
+def time_parts(doc):
+    """«Время: Части» больше нет: те же выходы (год, месяц, … день недели) у «Времени». True — граф поменялся."""
+    if not isinstance(doc, dict):
+        return False
+    changed = _parts_level(doc)
+    for group in (doc.get("groups") or {}).values():
+        if isinstance(group, dict):
+            changed = _parts_level(group) or changed
+    return changed

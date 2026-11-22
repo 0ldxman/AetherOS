@@ -83,9 +83,10 @@ def moment(what="datetime", source="now", value=None):
 def outputs(found):
     """Выходы ноды «Время»."""
     if found is None:
-        return {"value": "", "date": "", "clock": ""}
+        return {"value": "", "date": "", "clock": "", "year": 0, "month": 0, "day": 0, "hour": 0, "minute": 0, "weekday": 0}
     found = found.astimezone(dt_timezone.utc)
-    return {"value": text(found), "date": f"{found:%Y-%m-%d}", "clock": _hms(found)}
+    return {"value": text(found), "date": f"{found:%Y-%m-%d}", "clock": _hms(found), "year": found.year, "month": found.month, "day": found.day,
+            "hour": found.hour, "minute": found.minute, "weekday": found.isoweekday()}
 
 
 def shift(value, days=0, hours=0, minutes=0, seconds=0):

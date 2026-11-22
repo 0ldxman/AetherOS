@@ -47,7 +47,7 @@ class TimeTests(TestCase):
 
     def test_time_node(self):
         with mock.patch("graph.times.now", return_value=GAME.replace(second=7)):
-            self.assertEqual(times.outputs(times.moment()), {"value": "2031-05-14 21:00:07", "date": "2031-05-14", "clock": "21:00:07"})
+            self.assertEqual(times.outputs(times.moment()), {"value": "2031-05-14 21:00:07", "date": "2031-05-14", "clock": "21:00:07", "year": 2031, "month": 5, "day": 14, "hour": 21, "minute": 0, "weekday": 3})
             self.assertEqual(times.text(times.moment("date")), "2031-05-14 00:00")
             self.assertEqual(times.text(times.moment("clock", "other", "09:30")), "2031-05-14 09:30")
             self.assertEqual(times.text(times.moment("clock", "other", "2030-01-01 08:15")), "2031-05-14 08:15")
@@ -57,7 +57,7 @@ class TimeTests(TestCase):
     def test_nodes_and_compare(self):
         with mock.patch("graph.times.now", return_value=GAME):
             nodes = [node("now", "time.get"), node("back", "time.calc", mode="shift", minutes=-30), node("d", "time.calc", unit="minutes"),
-                     node("z", "time.zone", zone="Asia/Tokyo"), node("p", "time.parts"), node("lt", "compare", op="lt"),
+                     node("z", "time.zone", zone="Asia/Tokyo"), node("p", "time.get", source="other"), node("lt", "compare", op="lt"),
                      node("eq", "compare", op="eq", b="2031-05-14 21:00"), node("t", "text", value="{когда}!", subs=[{"id": "s1", "name": "когда"}])]
             wires = [wire("now", "value", "back", "f:a"), wire("back", "shifted", "d", "f:b"), wire("now", "value", "d", "f:a"),
                      wire("now", "value", "z", "f:value"), wire("back", "shifted", "p", "f:value"), wire("back", "shifted", "lt", "f:a"),
@@ -92,3 +92,14 @@ class TimeTests(TestCase):
         with mock.patch("machines.world.chrono.to_game", return_value=GAME):
             self.assertEqual(sessions.props("ivan/ivan@aether-main")["seen"], "2031-05-14 21:00")
         self.assertEqual(sessions.props("ivan/root@aether-main")["seen"], "")
+
+
+class PartsUpgradeTests(TestCase):
+    def test_old_parts_node_becomes_a_time_node_with_the_same_outputs(self):
+        from graph.upgrade import time_parts
+
+        doc = {"nodes": [{"id": "p", "type": "time.parts", "data": {"value": "2031-05-14 21:00", "machine": "core"}}], "wires": [], "groups": {"g": {"nodes": [{"id": "q", "type": "time.parts", "data": {}}]}}}
+        self.assertTrue(time_parts(doc))
+        self.assertEqual((doc["nodes"][0]["type"], doc["nodes"][0]["data"]), ("time.get", {"value": "2031-05-14 21:00", "source": "other"}))
+        self.assertEqual((doc["groups"]["g"]["nodes"][0]["type"], doc["groups"]["g"]["nodes"][0]["data"]["source"]), ("time.get", "now"))
+        self.assertFalse(time_parts(doc))
