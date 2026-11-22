@@ -4919,6 +4919,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/graphs/{graph_id}/waits/{wait_id}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Skip Wait */
+        post: operations["studio_api_graph_skip_wait"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/runs/{run_id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop Run */
+        post: operations["studio_api_graph_stop_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -12228,6 +12262,14 @@ export interface components {
         PnActive: {
             /** Active */
             active: boolean;
+        };
+        /** PnDone */
+        PnDone: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
         };
     };
     responses: never;
@@ -20725,6 +20767,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PnCard"];
+                };
+            };
+        };
+    };
+    studio_api_graph_skip_wait: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+                wait_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnDone"];
+                };
+            };
+        };
+    };
+    studio_api_graph_stop_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnDone"];
                 };
             };
         };

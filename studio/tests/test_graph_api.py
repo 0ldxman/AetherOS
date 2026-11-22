@@ -178,3 +178,36 @@ class PanelApiTests(TestCase):
         self.assertFalse(self.graph.active)
         kinds = [e["kind"] for e in self.client.get(f"{URL}/{self.graph.pk}/journal").json()["entries"]]
         self.assertEqual(kinds[:2], ["switch", "reset"])
+
+    def test_author_can_skip_a_wait_and_stop_a_flow(self):
+        from graph.models import Run, Wait
+        from graph.runtime import start_control
+
+        self.graph.doc["nodes"] += [{"id": "w", "type": "wait", "x": 400, "y": 0, "data": {"minutes": 5}}, {"id": "s2", "type": "stage", "x": 600, "y": 0, "data": {"title": "After"}}]
+        self.graph.doc["wires"] = [{"from": "bt", "out": "fire", "to": "w", "in": "in"}, {"from": "w", "out": "next", "to": "s2", "in": "in"}]
+        self.graph.save()
+        start_control(self.graph, "bt")
+        wait = Wait.objects.get()
+        self.assertEqual(self.client.post(f"{URL}/{self.graph.pk}/waits/{wait.pk}/skip").status_code, 200)
+        self.assertFalse(Wait.objects.exists())
+        after = next(n for n in self.scenario()["flow"]["nodes"] if n["title"] == "After")
+        self.assertEqual(after["state"], "done")
+        self.assertEqual(self.client.post(f"{URL}/{self.graph.pk}/waits/{wait.pk}/skip").status_code, 404)             # второй раз ожидания уже нет
+        start_control(self.graph, "bt")
+        run = Run.objects.filter(status="running").get()
+        self.assertEqual(self.client.post(f"{URL}/{self.graph.pk}/runs/{run.pk}/stop").status_code, 200)
+        run.refresh_from_db()
+        self.assertEqual((run.status, run.outcome), ("done", "stopped"))
+        self.assertEqual(self.client.post(f"{URL}/{self.graph.pk}/runs/{run.pk}/stop").status_code, 400)
+        texts = [e["text"] for e in self.client.get(f"{URL}/{self.graph.pk}/journal").json()["entries"]]
+        self.assertIn("Поток остановлен автором", texts)
+        self.assertTrue(any(t.startswith("Пропущено ожидание") for t in texts))
+
+    def test_free_branch_cannot_be_stopped(self):
+        from graph.models import Run
+
+        free = Run.objects.create(graph=self.graph, state={"vacancy": True, "fork": "b"})
+        response = self.client.post(f"{URL}/{self.graph.pk}/runs/{free.pk}/stop")
+        self.assertEqual(response.status_code, 400)
+        free.refresh_from_db()
+        self.assertEqual(free.status, "running")

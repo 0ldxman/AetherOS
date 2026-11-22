@@ -2233,3 +2233,32 @@ def _bound(graph, doc, node_id, kind, now):
     outs = _action(run, doc, node_id, kind, {"variant": variant})
     advance(run, [step for out in outs for step in doc.next(node_id, out)])
     return 1
+
+
+# ---------- ручное вмешательство автора (карта сценария) ----------
+
+def skip_wait(wait_id, author=None):
+    """Автор пропускает ожидание: поток идёт дальше, как будто оно сработало (у «Ждать» — по выходу «Наступило»)."""
+    wait = Wait.objects.select_related("run__graph").filter(pk=wait_id).first()
+    if wait is None or wait.run.status != Run.Status.RUNNING:
+        raise ValueError("Это ожидание уже сработало.")
+    graph, doc = wait.run.graph, doc_of(wait.run.graph)
+    title = N.titled(doc.kind(wait.node), doc.data(wait.node)) if doc.kind(wait.node) is not None else wait.node
+    node, run_id = wait.node, wait.run_id
+    if resume(wait) is None:
+        raise ValueError("Это ожидание уже сработало.")
+    journal.note(graph, "control", f"Пропущено ожидание «{title}»", journal.name_of(author), node, run_id)
+
+
+def stop_run(run_id, graph, author=None):
+    """Автор останавливает поток (ветку). Свободную ветку не останавливают: её снимает «Повтор ветвления»."""
+    with transaction.atomic():
+        run = Run.objects.select_for_update().filter(pk=run_id, graph=graph).first()
+        if run is None or run.status != Run.Status.RUNNING:
+            raise ValueError("Этот поток уже закончен.")
+        if (run.state or {}).get("vacancy"):
+            raise ValueError("Свободную ветку не останавливают: отключите набор нодой «Повтор ветвления».")
+        run.graph = graph
+        _finish(run, "stopped")
+        run.save(update_fields=["status", "outcome", "ended_at"])
+    journal.note(graph, "control", "Поток остановлен автором", journal.name_of(author), run.node, run.pk)

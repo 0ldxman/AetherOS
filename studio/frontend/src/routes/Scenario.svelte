@@ -92,7 +92,7 @@
   <p class="sr" aria-live="polite" role="status">{said}</p>
 
   {#if current === "flow"}
-    <ScenarioFlow flow={page.flow} active={card.active} />
+    <ScenarioFlow flow={page.flow} active={card.active} {id} {editable} reload={load} />
   {:else if current === "panel"}
     <ScenarioPanel {id} tiles={page.tiles} variables={page.variables} active={card.active} {editable} reload={load} />
   {:else}

@@ -9,7 +9,7 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from graph import check, flowmap, journal, nodes, runtime, stats
-from graph.models import Graph
+from graph.models import Graph, Wait
 
 router = Router(tags=["graph"])
 
@@ -421,6 +421,10 @@ class PnActive(Schema):
     active: bool
 
 
+class PnDone(Schema):
+    ok: bool = True
+
+
 WIDTHS = (3, 4, 6, 12)
 
 
@@ -527,3 +531,25 @@ def reset(request, graph_id: int):
     runtime.reset_scenario(graph)
     journal.note(graph, "reset", "Сценарий начат заново", request.user.get_username())
     return _card(graph)
+
+
+@router.post("/{int:graph_id}/waits/{int:wait_id}/skip", response=PnDone)
+def skip_wait(request, graph_id: int, wait_id: int):
+    graph = get_object_or_404(Graph, pk=graph_id, owner="")
+    if not Wait.objects.filter(pk=wait_id, run__graph=graph).exists():
+        raise HttpError(404, "Ожидания уже нет.")
+    try:
+        runtime.skip_wait(wait_id, request.user)
+    except ValueError as error:
+        raise HttpError(400, str(error)) from None
+    return PnDone()
+
+
+@router.post("/{int:graph_id}/runs/{int:run_id}/stop", response=PnDone)
+def stop_run(request, graph_id: int, run_id: int):
+    graph = get_object_or_404(Graph, pk=graph_id, owner="")
+    try:
+        runtime.stop_run(run_id, graph, request.user)
+    except ValueError as error:
+        raise HttpError(400, str(error)) from None
+    return PnDone()

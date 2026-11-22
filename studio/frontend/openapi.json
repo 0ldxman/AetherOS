@@ -15050,6 +15050,98 @@
      }
     ]
    }
+  },
+  "/studio/api/world/graphs/{graph_id}/waits/{wait_id}/skip": {
+   "post": {
+    "operationId": "studio_api_graph_skip_wait",
+    "summary": "Skip Wait",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "wait_id",
+      "schema": {
+       "title": "Wait Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/runs/{run_id}/stop": {
+   "post": {
+    "operationId": "studio_api_graph_stop_run",
+    "summary": "Stop Run",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "run_id",
+      "schema": {
+       "title": "Run Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnDone"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
   }
  },
  "components": {
@@ -32957,6 +33049,17 @@
      "active"
     ],
     "title": "PnActive",
+    "type": "object"
+   },
+   "PnDone": {
+    "properties": {
+     "ok": {
+      "default": true,
+      "title": "Ok",
+      "type": "boolean"
+     }
+    },
+    "title": "PnDone",
     "type": "object"
    }
   },

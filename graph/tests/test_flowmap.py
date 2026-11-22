@@ -58,7 +58,8 @@ class FlowMapTests(TestCase):
                      [wire("t1", "run", "s"), wire("t2", "run", "s")], slug="starts")
         flow = flowmap.build(graph)
         self.assertEqual(sorted((e["src"], e["to"]) for e in flow["edges"]), [("t1", "s"), ("t2", "s")])
-        self.assertEqual(sorted(by_id(flow)[i]["title"] for i in ("t1", "t2")), ["Терминал: Введена команда · one", "Терминал: Введена команда · two"])
+        self.assertEqual(sorted(by_id(flow)[i]["title"] for i in ("t1", "t2")), ["one", "two"])
+        self.assertEqual(by_id(flow)["t1"]["hint"], "Терминал: Введена команда · one")
 
     def test_waiting_at_the_dead_end_is_a_tail_of_the_last_node(self):
         graph = make([node("go", "manual", name="Go"), stage("s", "Last"), node("w", "wait", minutes=9)], [wire("go", "fire", "s"), wire("s", "next", "w")], slug="tail")
@@ -71,6 +72,13 @@ class FlowMapTests(TestCase):
         graph = make([node("t", "on:terminal.command", command="go"), node("w", "wait", minutes=5)], [wire("t", "run", "w")], slug="plain")
         self.assertEqual(sorted(by_id(flowmap.build(graph))), ["t", "w"])
 
+    def test_wait_carries_game_time_and_ids_for_the_author_actions(self):
+        graph = self.graph()
+        start_control(graph, "go")
+        row = edge(flowmap.build(graph), "s1", "s2")["wait"]["waits"][0]
+        self.assertRegex(row["until_game"], r"^\d{4}-\d\d-\d\d \d\d:\d\d$")
+        self.assertTrue(row["id"] and row["run"])
+
     def test_empty_and_cycle_do_not_break(self):
         self.assertEqual(flowmap.build(make([], [], slug="empty"))["nodes"], [])
         graph = make([stage("a", "A"), stage("b", "B")], [wire("a", "next", "b"), wire("b", "next", "a")], slug="loop")
@@ -80,6 +88,15 @@ class FlowMapTests(TestCase):
 
 
 class ForkMapTests(BranchingBase):
+    def test_fork_without_stages_gets_a_stub_lane_so_its_branches_can_be_opened(self):
+        graph = self.graph(self.doc(repeat="yes", total=3, per=1, name="Red"))
+        start_manual(graph, "m", self.boris)
+        flow = flowmap.build(graph)
+        stub = by_id(flow)["b#lane"]
+        self.assertEqual((stub["role"], stub["branch"], stub["title"]), ("lane", "b", "В ветке нет этапов"))
+        self.assertEqual(next(e for e in flow["edges"] if e["to"] == "b#lane")["wait"]["count"], 1)
+        self.assertFalse(by_id(flow)["b"]["here"])                                              # свободная ветка не делает ветвление «стоящим»
+
     def test_branch_map_hangs_below_the_fork_with_a_count_on_the_waiting_arrow(self):
         inner = {"title": "Ветвление", "nodes": [node("h", "branch_head"), node("t1", "on:terminal.command", command="open"), node("own", "branch_owner", who="player"),
                                                  stage("si", "Вошла"), node("t2", "on:terminal.command", command="step"), stage("sd", "Дошла"), node("o", "branch_out")],
