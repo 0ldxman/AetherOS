@@ -20,6 +20,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from graph import journal
 from graph import nodes as N
 from graph.models import Graph, Hit, Mark, Run, Start, Wait
 
@@ -485,6 +486,10 @@ def until_clock(text, real=False):
 
 def _hit(run, node_id):
     Hit.objects.create(graph=run.graph, node=node_id, user=run.user, run=run)
+    kind = doc_of(run.graph).kind(node_id)
+    if kind is not None and kind.name == "stage":
+        title = str(doc_of(run.graph).data(node_id).get("title") or "").strip() or "без названия"
+        journal.note(run.graph, "stage", f"Этап «{title}» пройден", journal.name_of(run.user), node_id, run)
 
 
 def _mark(run, node_id, user=None):
@@ -1527,6 +1532,7 @@ def _execute(run, doc, node_id, sock):
             return ["next"]
         if name == "scenario_reset":
             reset_scenario(run.graph, keep_vars=bool(data.get("keep_vars")), keep_crews=bool(data.get("keep_crews")), except_run=run)
+            journal.note(run.graph, "reset", "Сценарий начат заново нодой", journal.name_of(run.user), node_id)
             run.state = {**(run.state or {}), "reset": True}
             _finish(run, "reset")
             return []
@@ -1544,6 +1550,8 @@ def _execute(run, doc, node_id, sock):
         return _claim(run, data)
     if name == "end":
         _finish(run, data.get("outcome") or "passed")
+        journal.note(run.graph, "end", "Поток закончен: " + {"passed": "прошёл", "failed": "провалил", "aborted": "прервано"}.get(run.outcome, run.outcome),
+                     journal.name_of(run.user), node_id, run)
         return []
     return []
 
@@ -1653,6 +1661,7 @@ def _restart_branch(run, doc):
             spawn.save(update_fields=["taken", "users"])
         base = dict((run.state or {}).get("base") or spawn.base or {})          # данные на входе в «Ветвление»
     _finish(run, "restarted")
+    journal.note(run.graph, "branch", "Ветка начата заново", journal.name_of(run.user), fork, run)
     if start_at is not None:
         if doc.data(fork).get("repeat") == "yes":
             _open_vacancy(run.graph, doc, fork, data=base)
@@ -1705,6 +1714,8 @@ def _occupy(run, event):
     if event is not None and event.user is not None:
         spawn.users = {**(spawn.users or {}), str(event.user.pk): int((spawn.users or {}).get(str(event.user.pk), 0)) + 1}
     spawn.save(update_fields=["taken", "users"])
+    who = journal.name_of(event.user) if event is not None else ""
+    journal.note(run.graph, "branch", f"Ветка №{spawn.taken} занята", who, node_id, run)
     _open_vacancy(run.graph, doc_of(run.graph), node_id)
 
 
@@ -1773,7 +1784,9 @@ def _crew(run, doc, node_id, data):
     else:
         crews.set_closed(run.graph, name, mode == "close")
     found = crews.members(run.graph, name)
-    run.state = {**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"count": len(found), "members": found}}}
+    said = {"add": "добавлен" if out == "next" else "не добавлен: группа закрыта или полна", "remove": "убран", "close": "закрыта для вступления", "open": "открыта для вступления"}[mode]
+    journal.note(run.graph, "crew", f"Группа «{name}»: " + (f"{said}" if mode in ("close", "open") else f"игрок {said}"), journal.name_of(user), node_id, run)
+    run.state ={**(run.state or {}), "vals": {**((run.state or {}).get("vals") or {}), node_id: {"count": len(found), "members": found}}}
     return [out]
 
 
@@ -1861,6 +1874,8 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     run.graph = graph
     capture(run, node_id, ctx=ctx or {})
     _hit(run, node_id)
+    if user is not None and (ctx or {}).get("event") != N.MANUAL_EVENT:
+        journal.note(graph, "start", f"Запустил «{N.titled(kind, doc.data(node_id))}»", journal.name_of(user), node_id, run)
     return advance(run, doc.next(node_id, out))
 
 
@@ -2059,6 +2074,9 @@ def start_control(graph, node_id, value=None, user=None, author=None):
         found["value"] = value
         _write_var(graph, name, value)
         _wake_conditions(graph)
+    shown = "" if kind.name == "manual" else f" = {'вкл' if value is True else 'выкл' if value is False else value}"
+    journal.note(graph, "control", f"{'Кнопка' if kind.name == 'manual' else 'Управление'} «{str(data.get('name') or kind.label).strip()}»{shown}",
+                 found["author"] or journal.name_of(user), node_id)
     return start(graph, node_id, out, user, {"event": N.MANUAL_EVENT, "data": found}, repeat="always")
 
 

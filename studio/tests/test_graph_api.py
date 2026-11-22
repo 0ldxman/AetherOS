@@ -90,7 +90,7 @@ class GraphApiTests(TestCase):
 
 
 class PanelApiTests(TestCase):
-    """Страница «Мир»: карточки сценариев, пульт (управление), сброс, включение."""
+    """Страница «Мир»: карточки сценариев, страница сценария (карта, пульт, журнал), сброс, включение."""
 
     def setUp(self):
         User = get_user_model()
@@ -106,42 +106,75 @@ class PanelApiTests(TestCase):
     def card(self):
         return next(card for card in self.client.get(f"{URL}/panel").json() if card["slug"] == "panel")
 
+    def scenario(self):
+        return self.client.get(f"{URL}/{self.graph.pk}/scenario").json()
+
     def post(self, path, body=None):
         return self.client.post(f"{URL}/{self.graph.pk}/{path}", body or {}, content_type="application/json")
 
-    def test_card_lists_controls_stages_and_variables(self):
-        card = self.card()
-        self.assertEqual([(c["kind"], c["name"]) for c in card["controls"]], [("ctl_switch", "Alarm"), ("ctl_choice", "Mode"), ("ctl_number", "Level"), ("manual", "Go")])
-        self.assertEqual(next(c for c in card["controls"] if c["kind"] == "ctl_number")["max"], 10)
-        self.assertEqual(next(c for c in card["controls"] if c["kind"] == "ctl_choice")["options"], ["calm", "alert"])
-        self.assertEqual((card["stages"][0]["title"], card["stages"][0]["hits"], card["variables"]), ("Door opened", 0, {}))
-        self.assertEqual((card["errors"], card["waiting"], card["running"]), (0, 0, 0))
+    def put_layout(self, tiles):
+        return self.client.put(f"{URL}/{self.graph.pk}/layout", {"tiles": tiles}, content_type="application/json")
 
-    def test_card_counts_errors_and_waiting_flows(self):
+    def test_scenario_page_lists_tiles_flow_and_variables(self):
+        page = self.scenario()
+        self.assertEqual([(t["control"]["kind"], t["control"]["name"]) for t in page["tiles"]], [("ctl_switch", "Alarm"), ("ctl_choice", "Mode"), ("ctl_number", "Level"), ("manual", "Go")])
+        self.assertEqual(next(t for t in page["tiles"] if t["control"]["kind"] == "ctl_number")["control"]["max"], 10)
+        self.assertEqual(next(t for t in page["tiles"] if t["control"]["kind"] == "ctl_choice")["control"]["options"], ["calm", "alert"])
+        self.assertEqual([(n["title"], n["state"], n["hits"]) for n in page["flow"]["nodes"]], [("Door opened", "ahead", 0)])
+        self.assertEqual(page["variables"], {})
+        self.assertEqual(page["card"]["slug"], "panel")
+
+    def test_card_is_short_and_counts_errors_and_waiting_flows(self):
         from graph.runtime import start_control
 
+        self.assertEqual(set(self.card()), {"id", "slug", "title", "active", "errors", "running", "waiting", "here"})
         self.graph.doc["nodes"] += [{"id": "w", "type": "wait", "x": 400, "y": 0, "data": {"mode": "delay", "minutes": 5}},
                                     {"id": "bad", "type": "do:world_flag", "x": 500, "y": 0, "data": {}}]
         self.graph.doc["wires"] = [{"from": "bt", "out": "fire", "to": "w", "in": "in"}]
         self.graph.save()
         start_control(self.graph, "bt")
         card = self.card()
-        self.assertEqual((card["waiting"], card["running"]), (1, 1))
+        self.assertEqual((card["waiting"], card["running"], card["here"]), (1, 1, ["Ждать 5 минут"]))
         self.assertGreaterEqual(card["errors"], 1)
 
-    def test_control_sets_value_and_counts_the_stage(self):
+    def test_control_sets_value_counts_the_stage_and_writes_the_journal(self):
         self.assertEqual(self.post("control", {"node": "sw", "value": True}).status_code, 200)
         self.assertEqual(self.post("control", {"node": "ch", "value": "alert"}).status_code, 200)
-        card = self.card()
-        self.assertEqual(card["variables"], {"Alarm": True, "Mode": "alert"})
-        self.assertEqual(next(c for c in card["controls"] if c["name"] == "Alarm")["value"], True)
-        self.assertEqual(card["stages"][0]["hits"], 1)
+        page = self.scenario()
+        self.assertEqual(page["variables"], {"Alarm": True, "Mode": "alert"})
+        self.assertEqual(next(t for t in page["tiles"] if t["control"]["name"] == "Alarm")["control"]["value"], True)
+        self.assertEqual((page["flow"]["nodes"][0]["state"], page["flow"]["nodes"][0]["hits"]), ("done", 1))
         self.assertEqual(self.post("control", {"node": "ch", "value": "panic"}).status_code, 400)
         self.assertEqual(self.post("control", {"node": "nm", "value": 99}).status_code, 400)
+        entries = self.client.get(f"{URL}/{self.graph.pk}/journal").json()["entries"]
+        self.assertEqual([(e["kind"], e["who"]) for e in entries], [("control", "boss"), ("stage", ""), ("control", "boss")])
 
-    def test_reset_and_active(self):
+    def test_journal_pages_and_filters(self):
+        from graph import journal
+
+        for i in range(60):
+            journal.note(self.graph, "stage" if i % 2 else "start", f"e{i}")
+        first = self.client.get(f"{URL}/{self.graph.pk}/journal").json()
+        self.assertEqual((len(first["entries"]), first["entries"][0]["text"]), (50, "e59"))
+        rest = self.client.get(f"{URL}/{self.graph.pk}/journal", {"before": first["next"]}).json()
+        self.assertEqual((len(rest["entries"]), rest["next"]), (10, None))
+        only = self.client.get(f"{URL}/{self.graph.pk}/journal", {"kind": "start"}).json()
+        self.assertEqual({e["kind"] for e in only["entries"]}, {"start"})
+
+    def test_layout_orders_sizes_and_headings_and_ignores_stale_nodes(self):
+        self.assertEqual(self.put_layout([{"title": "Alarm group"}, {"node": "bt", "w": 3}, {"node": "ghost", "w": 6}, {"node": "sw", "w": 12}]).status_code, 200)
+        tiles = self.scenario()["tiles"]
+        self.assertEqual([(t["title"] or t["key"], t["w"]) for t in tiles], [("Alarm group", 12), ("bt", 3), ("sw", 12), ("ch", 6), ("nm", 6)])     # новые — в конец
+        self.assertEqual(self.put_layout([{"node": "sw", "w": 5}]).status_code, 400)
+        self.assertEqual(self.put_layout([{"node": "sw", "w": 6}, {"node": "sw", "w": 6}]).status_code, 200)
+        self.assertEqual([t["key"] for t in self.scenario()["tiles"]].count("sw"), 1)
+
+    def test_reset_and_active_are_journaled(self):
         self.post("control", {"node": "sw", "value": True})
-        self.assertEqual(self.post("reset").json()["variables"], {})
+        self.assertEqual(self.post("reset").json()["running"], 0)
+        self.assertEqual(self.scenario()["variables"], {})
         self.assertEqual(self.post("active", {"active": False}).json(), {"active": False})
         self.graph.refresh_from_db()
         self.assertFalse(self.graph.active)
+        kinds = [e["kind"] for e in self.client.get(f"{URL}/{self.graph.pk}/journal").json()["entries"]]
+        self.assertEqual(kinds[:2], ["switch", "reset"])

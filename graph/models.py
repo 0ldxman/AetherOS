@@ -14,6 +14,8 @@ class Graph(models.Model):
     doc = models.JSONField("Граф", default=dict, blank=True)
     owner = models.CharField("Принадлежит", max_length=80, blank=True, default="", db_index=True,
                              help_text="Граф попытки у вещи: «machine:12» (graph/owned.py). Пусто — обычный сценарий.")
+    panel = models.JSONField("Раскладка пульта", default=list, blank=True,
+                             help_text="Порядок и ширина плиток пульта на странице сценария: [{node, w} | {title}]. Нод, которых тут нет, ставятся в конец.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -194,6 +196,24 @@ class Branching(models.Model):
         constraints = [models.UniqueConstraint(fields=("graph", "node"), name="unique_graph_branching")]
         verbose_name = "Набор ветвления"
         verbose_name_plural = "Наборы ветвлений"
+
+
+class Entry(models.Model):
+    """Журнал сценария: что и когда произошло (кто нажал, какой этап пройден, чья ветка занята). Пишется рантаймом (graph/journal.py)."""
+
+    graph = models.ForeignKey(Graph, on_delete=models.CASCADE, related_name="journal")
+    kind = models.CharField("Вид", max_length=12)
+    text = models.CharField("Что произошло", max_length=300)
+    who = models.CharField("Кто", max_length=80, blank=True)
+    node = models.CharField(max_length=64, blank=True)
+    run = models.PositiveIntegerField("Поток", null=True, blank=True)            # без связи: потоки стираются при сбросе, а журнал остаётся
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        indexes = [models.Index(fields=("graph", "-id"), name="graph_entry_graph")]
+        verbose_name = "Запись журнала"
+        verbose_name_plural = "Журнал сценариев"
 
 
 class Shared(models.Model):

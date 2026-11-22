@@ -14816,6 +14816,157 @@
     ]
    }
   },
+  "/studio/api/world/graphs/{graph_id}/scenario": {
+   "get": {
+    "operationId": "studio_api_graph_scenario",
+    "summary": "Scenario",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnScenario"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/layout": {
+   "put": {
+    "operationId": "studio_api_graph_set_layout",
+    "summary": "Set Layout",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/PnTile"
+         },
+         "title": "Response",
+         "type": "array"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PnLayoutIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
+  "/studio/api/world/graphs/{graph_id}/journal": {
+   "get": {
+    "operationId": "studio_api_graph_journal_page",
+    "summary": "Journal Page",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "graph_id",
+      "schema": {
+       "title": "Graph Id",
+       "type": "integer"
+      },
+      "required": true
+     },
+     {
+      "in": "query",
+      "name": "before",
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Before"
+      },
+      "required": false
+     },
+     {
+      "in": "query",
+      "name": "kind",
+      "schema": {
+       "default": "",
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": false
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PnJournal"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "graph"
+    ],
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/graphs/{graph_id}/active": {
    "post": {
     "operationId": "studio_api_graph_set_active",
@@ -32469,6 +32620,10 @@
       "title": "Active",
       "type": "boolean"
      },
+     "errors": {
+      "title": "Errors",
+      "type": "integer"
+     },
      "running": {
       "title": "Running",
       "type": "integer"
@@ -32477,28 +32632,12 @@
       "title": "Waiting",
       "type": "integer"
      },
-     "errors": {
-      "title": "Errors",
-      "type": "integer"
-     },
-     "stages": {
+     "here": {
       "items": {
-       "$ref": "#/components/schemas/PnStage"
+       "type": "string"
       },
-      "title": "Stages",
+      "title": "Here",
       "type": "array"
-     },
-     "controls": {
-      "items": {
-       "$ref": "#/components/schemas/PnControl"
-      },
-      "title": "Controls",
-      "type": "array"
-     },
-     "variables": {
-      "additionalProperties": true,
-      "title": "Variables",
-      "type": "object"
      }
     },
     "required": [
@@ -32506,14 +32645,51 @@
      "slug",
      "title",
      "active",
+     "errors",
      "running",
      "waiting",
-     "errors",
-     "stages",
-     "controls",
-     "variables"
+     "here"
     ],
     "title": "PnCard",
+    "type": "object"
+   },
+   "PnBranch": {
+    "properties": {
+     "run": {
+      "title": "Run",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "at": {
+      "title": "At",
+      "type": "string"
+     },
+     "outcome": {
+      "title": "Outcome",
+      "type": "string"
+     },
+     "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "run",
+     "state",
+     "owner",
+     "at",
+     "outcome",
+     "started_at"
+    ],
+    "title": "PnBranch",
     "type": "object"
    },
    "PnControl": {
@@ -32583,7 +32759,72 @@
     "title": "PnControl",
     "type": "object"
    },
-   "PnStage": {
+   "PnEdge": {
+    "properties": {
+     "src": {
+      "title": "Src",
+      "type": "string"
+     },
+     "to": {
+      "title": "To",
+      "type": "string"
+     },
+     "back": {
+      "title": "Back",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "src",
+     "to",
+     "back"
+    ],
+    "title": "PnEdge",
+    "type": "object"
+   },
+   "PnFlow": {
+    "properties": {
+     "nodes": {
+      "items": {
+       "$ref": "#/components/schemas/PnStep"
+      },
+      "title": "Nodes",
+      "type": "array"
+     },
+     "edges": {
+      "items": {
+       "$ref": "#/components/schemas/PnEdge"
+      },
+      "title": "Edges",
+      "type": "array"
+     },
+     "cols": {
+      "title": "Cols",
+      "type": "integer"
+     },
+     "rows": {
+      "title": "Rows",
+      "type": "integer"
+     },
+     "forks": {
+      "items": {
+       "$ref": "#/components/schemas/PnFork"
+      },
+      "title": "Forks",
+      "type": "array"
+     }
+    },
+    "required": [
+     "nodes",
+     "edges",
+     "cols",
+     "rows",
+     "forks"
+    ],
+    "title": "PnFlow",
+    "type": "object"
+   },
+   "PnFork": {
     "properties": {
      "node": {
       "title": "Node",
@@ -32593,27 +32834,335 @@
       "title": "Title",
       "type": "string"
      },
-     "hits": {
-      "title": "Hits",
+     "repeat": {
+      "title": "Repeat",
+      "type": "boolean"
+     },
+     "open": {
+      "title": "Open",
+      "type": "boolean"
+     },
+     "taken": {
+      "title": "Taken",
       "type": "integer"
      },
-     "players": {
-      "title": "Players",
+     "total": {
+      "title": "Total",
       "type": "integer"
      },
-     "waiting": {
-      "title": "Waiting",
-      "type": "integer"
+     "branches": {
+      "items": {
+       "$ref": "#/components/schemas/PnBranch"
+      },
+      "title": "Branches",
+      "type": "array"
      }
     },
     "required": [
      "node",
      "title",
-     "hits",
-     "players",
-     "waiting"
+     "repeat",
+     "open",
+     "taken",
+     "total",
+     "branches"
     ],
-    "title": "PnStage",
+    "title": "PnFork",
+    "type": "object"
+   },
+   "PnScenario": {
+    "properties": {
+     "card": {
+      "$ref": "#/components/schemas/PnCard"
+     },
+     "flow": {
+      "$ref": "#/components/schemas/PnFlow"
+     },
+     "tiles": {
+      "items": {
+       "$ref": "#/components/schemas/PnTile"
+      },
+      "title": "Tiles",
+      "type": "array"
+     },
+     "variables": {
+      "additionalProperties": true,
+      "title": "Variables",
+      "type": "object"
+     }
+    },
+    "required": [
+     "card",
+     "flow",
+     "tiles",
+     "variables"
+    ],
+    "title": "PnScenario",
+    "type": "object"
+   },
+   "PnStep": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "role": {
+      "title": "Role",
+      "type": "string"
+     },
+     "title": {
+      "title": "Title",
+      "type": "string"
+     },
+     "col": {
+      "title": "Col",
+      "type": "integer"
+     },
+     "row": {
+      "title": "Row",
+      "type": "integer"
+     },
+     "branch": {
+      "title": "Branch",
+      "type": "string"
+     },
+     "hits": {
+      "title": "Hits",
+      "type": "integer"
+     },
+     "last_at": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last At"
+     },
+     "here": {
+      "title": "Here",
+      "type": "integer"
+     },
+     "state": {
+      "title": "State",
+      "type": "string"
+     },
+     "waits": {
+      "items": {
+       "$ref": "#/components/schemas/PnWait"
+      },
+      "title": "Waits",
+      "type": "array"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "role",
+     "title",
+     "col",
+     "row",
+     "branch",
+     "hits",
+     "last_at",
+     "here",
+     "state",
+     "waits"
+    ],
+    "title": "PnStep",
+    "type": "object"
+   },
+   "PnTile": {
+    "properties": {
+     "key": {
+      "title": "Key",
+      "type": "string"
+     },
+     "w": {
+      "title": "W",
+      "type": "integer"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "control": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/PnControl"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "key",
+     "w"
+    ],
+    "title": "PnTile",
+    "type": "object"
+   },
+   "PnWait": {
+    "properties": {
+     "owner": {
+      "title": "Owner",
+      "type": "string"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     },
+     "until": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Until"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     }
+    },
+    "required": [
+     "owner",
+     "since",
+     "until",
+     "kind"
+    ],
+    "title": "PnWait",
+    "type": "object"
+   },
+   "PnLayoutIn": {
+    "properties": {
+     "tiles": {
+      "items": {
+       "$ref": "#/components/schemas/PnTileIn"
+      },
+      "title": "Tiles",
+      "type": "array"
+     }
+    },
+    "required": [
+     "tiles"
+    ],
+    "title": "PnLayoutIn",
+    "type": "object"
+   },
+   "PnTileIn": {
+    "properties": {
+     "node": {
+      "default": "",
+      "title": "Node",
+      "type": "string"
+     },
+     "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+     },
+     "w": {
+      "default": 6,
+      "title": "W",
+      "type": "integer"
+     }
+    },
+    "title": "PnTileIn",
+    "type": "object"
+   },
+   "PnEntry": {
+    "properties": {
+     "id": {
+      "title": "Id",
+      "type": "integer"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "text": {
+      "title": "Text",
+      "type": "string"
+     },
+     "who": {
+      "title": "Who",
+      "type": "string"
+     },
+     "node": {
+      "title": "Node",
+      "type": "string"
+     },
+     "run": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Run"
+     },
+     "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "text",
+     "who",
+     "node",
+     "run",
+     "at"
+    ],
+    "title": "PnEntry",
+    "type": "object"
+   },
+   "PnJournal": {
+    "properties": {
+     "entries": {
+      "items": {
+       "$ref": "#/components/schemas/PnEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+     },
+     "next": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Next"
+     }
+    },
+    "required": [
+     "entries",
+     "next"
+    ],
+    "title": "PnJournal",
     "type": "object"
    },
    "PnActive": {

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from graph import check, nodes, runtime, stats
+from graph import check, flowmap, journal, nodes, runtime, stats
 from graph.models import Graph
 
 router = Router(tags=["graph"])
@@ -343,19 +343,78 @@ def control(request, graph_id: int, body: GrStartIn):
     return GrStarted(status=run.status if run else "skipped", outcome=run.outcome if run else "")
 
 
-# ---------- страница «Мир»: сценарии, этапы, пульт ----------
+# ---------- страница «Мир»: карточки сценариев, страница сценария (карта, пульт, журнал) ----------
 
-class PnStage(Schema):
+class PnCard(Schema):
+    id: int
+    slug: str
+    title: str
+    active: bool
+    errors: int
+    running: int
+    waiting: int
+    here: list[str]                              # где сценарий стоит сейчас: названия нод с ожиданиями
+
+
+class PnWait(Schema):
+    owner: str
+    since: dt.datetime
+    until: dt.datetime | None
+    kind: str
+
+
+class PnStep(Schema):
+    id: str
+    kind: str
+    role: str                                    # start | event | stage | wait | branch | end | other
+    title: str
+    col: int
+    row: int
+    branch: str
+    hits: int
+    last_at: dt.datetime | None
+    here: int
+    state: str                                   # done | here | ahead
+    waits: list[PnWait]
+
+
+class PnEdge(Schema):
+    # «from» — слово Python: в схеме поле зовётся src
+    src: str
+    to: str
+    back: bool
+
+
+class PnBranch(Schema):
+    run: int
+    state: str                                   # free | taken | done
+    owner: str
+    at: str
+    outcome: str
+    started_at: dt.datetime
+
+
+class PnFork(Schema):
     node: str
     title: str
-    hits: int
-    players: int
-    waiting: int
+    repeat: bool
+    open: bool
+    taken: int
+    total: int
+    branches: list[PnBranch]
+
+
+class PnFlow(Schema):
+    nodes: list[PnStep]
+    edges: list[PnEdge]
+    cols: int
+    rows: int
+    forks: list[PnFork]
 
 
 class PnControl(Schema):
     node: str
-    kind: str                                   # manual | ctl_switch | ctl_text | ctl_choice | ctl_number
+    kind: str                                    # manual | ctl_switch | ctl_text | ctl_choice | ctl_number
     name: str
     value: Any = None
     options: list[str] = []
@@ -364,21 +423,50 @@ class PnControl(Schema):
     step: float | None = None
 
 
-class PnCard(Schema):
-    id: int
-    slug: str
-    title: str
-    active: bool
-    running: int
-    waiting: int
-    errors: int
-    stages: list[PnStage]
-    controls: list[PnControl]
+class PnTile(Schema):
+    key: str                                     # node или «title:N»
+    w: int                                       # ширина в двенадцатых долях строки: 3, 4, 6 или 12
+    title: str = ""                              # у плитки-заголовка
+    control: PnControl | None = None             # у плитки-управления
+
+
+class PnScenario(Schema):
+    card: PnCard
+    flow: PnFlow
+    tiles: list[PnTile]
     variables: dict[str, Any]
+
+
+class PnTileIn(Schema):
+    node: str = ""
+    title: str = ""
+    w: int = 6
+
+
+class PnLayoutIn(Schema):
+    tiles: list[PnTileIn]
+
+
+class PnEntry(Schema):
+    id: int
+    kind: str
+    text: str
+    who: str
+    node: str
+    run: int | None
+    at: dt.datetime
+
+
+class PnJournal(Schema):
+    entries: list[PnEntry]
+    next: int | None
 
 
 class PnActive(Schema):
     active: bool
+
+
+WIDTHS = (3, 4, 6, 12)
 
 
 def _num(value):
@@ -389,26 +477,43 @@ def _num(value):
 
 
 def _card(graph):
-    flat = runtime.Doc(runtime.flatten(graph.doc, graph.slug))
     found = stats.of(graph)
-    shared = runtime.variables(graph)
-    ordered = sorted(flat.nodes.items(), key=lambda item: (item[1].get("x") or 0, item[1].get("y") or 0))
-    stages, controls = [], []
-    for node_id, node in ordered:
-        data = node.get("data") or {}
-        if node.get("type") == "stage":
-            seen = found["nodes"].get(node_id) or {}
-            stages.append(PnStage(node=node_id, title=str(data.get("title") or "").strip() or "без названия", hits=seen.get("hits", 0),
-                                  players=seen.get("players", 0), waiting=seen.get("waiting", 0)))
-        elif node.get("type") in nodes.CONTROLS:
-            name = str(data.get("name") or "").strip()
-            kind = node["type"]
-            controls.append(PnControl(node=node_id, kind=kind, name=name, value=None if kind == "manual" else runtime._dig(shared, name),
-                                      options=[line.strip() for line in str(data.get("options") or "").splitlines() if line.strip()] if kind == "ctl_choice" else [],
-                                      min=_num(data.get("min")) if kind == "ctl_number" else None, max=_num(data.get("max")) if kind == "ctl_number" else None,
-                                      step=_num(data.get("step")) if kind == "ctl_number" else None))
     return PnCard(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, running=found["running"], waiting=found["waiting"],
-                  errors=sum(1 for p in check.problems(graph.doc, graph.slug, graph.owner) if p["level"] == "error"), stages=stages, controls=controls, variables=shared)
+                  errors=sum(1 for p in check.problems(graph.doc, graph.slug, graph.owner) if p["level"] == "error"), here=flowmap.here_titles(graph))
+
+
+def _controls(graph):
+    """Управление сценария по порядку на холсте: node → PnControl."""
+    flat = runtime.Doc(runtime.flatten(graph.doc, graph.slug))
+    shared = runtime.variables(graph)
+    found = {}
+    for node_id, node in sorted(flat.nodes.items(), key=lambda item: (item[1].get("x") or 0, item[1].get("y") or 0)):
+        kind = node.get("type")
+        if kind not in nodes.CONTROLS:
+            continue
+        data = node.get("data") or {}
+        name = str(data.get("name") or "").strip()
+        found[node_id] = PnControl(node=node_id, kind=kind, name=name, value=None if kind == "manual" else runtime._dig(shared, name),
+                                   options=[line.strip() for line in str(data.get("options") or "").splitlines() if line.strip()] if kind == "ctl_choice" else [],
+                                   min=_num(data.get("min")) if kind == "ctl_number" else None, max=_num(data.get("max")) if kind == "ctl_number" else None,
+                                   step=_num(data.get("step")) if kind == "ctl_number" else None)
+    return found
+
+
+def _tiles(graph, controls):
+    """Раскладка пульта: сохранённый порядок и ширина, затем новые управления в конец. Устаревшие записи молча пропускаются."""
+    tiles, used = [], set()
+    for index, item in enumerate(graph.panel or []):
+        if not isinstance(item, dict):
+            continue
+        w = item.get("w") if item.get("w") in WIDTHS else 6
+        if item.get("node") in controls and item["node"] not in used:
+            used.add(item["node"])
+            tiles.append(PnTile(key=item["node"], w=w, control=controls[item["node"]]))
+        elif item.get("title"):
+            tiles.append(PnTile(key=f"title:{index}", w=12, title=str(item["title"])))
+    tiles.extend(PnTile(key=node_id, w=6, control=control) for node_id, control in controls.items() if node_id not in used)
+    return tiles
 
 
 @router.get("/panel", response=list[PnCard])
@@ -416,9 +521,47 @@ def panel(request):
     return [_card(graph) for graph in Graph.objects.filter(owner="").order_by("title")]
 
 
+@router.get("/{int:graph_id}/scenario", response=PnScenario)
+def scenario(request, graph_id: int):
+    graph = get_object_or_404(Graph, pk=graph_id, owner="")
+    flow = flowmap.build(graph)
+    return PnScenario(card=_card(graph), flow=PnFlow(nodes=flow["nodes"], edges=[PnEdge(src=e["from"], to=e["to"], back=e["back"]) for e in flow["edges"]],
+                                                     cols=flow["cols"], rows=flow["rows"], forks=flow["forks"]),
+                      tiles=_tiles(graph, _controls(graph)), variables=runtime.variables(graph))
+
+
+@router.put("/{int:graph_id}/layout", response=list[PnTile])
+def set_layout(request, graph_id: int, body: PnLayoutIn):
+    graph = get_object_or_404(Graph, pk=graph_id, owner="")
+    controls = _controls(graph)
+    if len(body.tiles) > 200:
+        raise HttpError(400, "Слишком много плиток.")
+    layout = []
+    for tile in body.tiles:
+        if tile.w not in WIDTHS:
+            raise HttpError(400, "Ширина плитки: 3, 4, 6 или 12.")
+        if tile.node:
+            if tile.node in controls:
+                layout.append({"node": tile.node, "w": tile.w})
+        elif tile.title.strip():
+            layout.append({"title": tile.title.strip()[:60], "w": 12})
+    graph.panel = layout
+    graph.save(update_fields=["panel"])
+    return _tiles(graph, controls)
+
+
+@router.get("/{int:graph_id}/journal", response=PnJournal)
+def journal_page(request, graph_id: int, before: int | None = None, kind: str = ""):
+    graph = get_object_or_404(Graph, pk=graph_id, owner="")
+    rows, more = journal.page(graph, before=before, kind=kind)
+    return PnJournal(entries=[PnEntry(id=r.pk, kind=r.kind, text=r.text, who=r.who, node=r.node, run=r.run, at=r.at) for r in rows], next=more)
+
+
 @router.post("/{int:graph_id}/active", response=PnActive)
 def set_active(request, graph_id: int, body: PnActive):
     graph = get_object_or_404(Graph, pk=graph_id)
+    if graph.active != body.active:
+        journal.note(graph, "switch", "Сценарий включён" if body.active else "Сценарий выключен", request.user.get_username())
     graph.active = body.active
     graph.save(update_fields=["active"])
     return PnActive(active=graph.active)
@@ -428,4 +571,5 @@ def set_active(request, graph_id: int, body: PnActive):
 def reset(request, graph_id: int):
     graph = get_object_or_404(Graph, pk=graph_id)
     runtime.reset_scenario(graph)
+    journal.note(graph, "reset", "Сценарий начат заново", request.user.get_username())
     return _card(graph)

@@ -4834,6 +4834,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/graphs/{graph_id}/scenario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Scenario */
+        get: operations["studio_api_graph_scenario"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Layout */
+        put: operations["studio_api_graph_set_layout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/api/world/graphs/{graph_id}/journal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Journal Page */
+        get: operations["studio_api_graph_journal_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/graphs/{graph_id}/active": {
         parameters: {
             query?: never;
@@ -12051,20 +12102,32 @@ export interface components {
             title: string;
             /** Active */
             active: boolean;
+            /** Errors */
+            errors: number;
             /** Running */
             running: number;
             /** Waiting */
             waiting: number;
-            /** Errors */
-            errors: number;
-            /** Stages */
-            stages: components["schemas"]["PnStage"][];
-            /** Controls */
-            controls: components["schemas"]["PnControl"][];
-            /** Variables */
-            variables: {
-                [key: string]: unknown;
-            };
+            /** Here */
+            here: string[];
+        };
+        /** PnBranch */
+        PnBranch: {
+            /** Run */
+            run: number;
+            /** State */
+            state: string;
+            /** Owner */
+            owner: string;
+            /** At */
+            at: string;
+            /** Outcome */
+            outcome: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
         };
         /** PnControl */
         PnControl: {
@@ -12088,18 +12151,159 @@ export interface components {
             /** Step */
             step?: number | null;
         };
-        /** PnStage */
-        PnStage: {
+        /** PnEdge */
+        PnEdge: {
+            /** Src */
+            src: string;
+            /** To */
+            to: string;
+            /** Back */
+            back: boolean;
+        };
+        /** PnFlow */
+        PnFlow: {
+            /** Nodes */
+            nodes: components["schemas"]["PnStep"][];
+            /** Edges */
+            edges: components["schemas"]["PnEdge"][];
+            /** Cols */
+            cols: number;
+            /** Rows */
+            rows: number;
+            /** Forks */
+            forks: components["schemas"]["PnFork"][];
+        };
+        /** PnFork */
+        PnFork: {
             /** Node */
             node: string;
             /** Title */
             title: string;
+            /** Repeat */
+            repeat: boolean;
+            /** Open */
+            open: boolean;
+            /** Taken */
+            taken: number;
+            /** Total */
+            total: number;
+            /** Branches */
+            branches: components["schemas"]["PnBranch"][];
+        };
+        /** PnScenario */
+        PnScenario: {
+            card: components["schemas"]["PnCard"];
+            flow: components["schemas"]["PnFlow"];
+            /** Tiles */
+            tiles: components["schemas"]["PnTile"][];
+            /** Variables */
+            variables: {
+                [key: string]: unknown;
+            };
+        };
+        /** PnStep */
+        PnStep: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Role */
+            role: string;
+            /** Title */
+            title: string;
+            /** Col */
+            col: number;
+            /** Row */
+            row: number;
+            /** Branch */
+            branch: string;
             /** Hits */
             hits: number;
-            /** Players */
-            players: number;
-            /** Waiting */
-            waiting: number;
+            /** Last At */
+            last_at: string | null;
+            /** Here */
+            here: number;
+            /** State */
+            state: string;
+            /** Waits */
+            waits: components["schemas"]["PnWait"][];
+        };
+        /** PnTile */
+        PnTile: {
+            /** Key */
+            key: string;
+            /** W */
+            w: number;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            control?: components["schemas"]["PnControl"] | null;
+        };
+        /** PnWait */
+        PnWait: {
+            /** Owner */
+            owner: string;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /** Until */
+            until: string | null;
+            /** Kind */
+            kind: string;
+        };
+        /** PnLayoutIn */
+        PnLayoutIn: {
+            /** Tiles */
+            tiles: components["schemas"]["PnTileIn"][];
+        };
+        /** PnTileIn */
+        PnTileIn: {
+            /**
+             * Node
+             * @default
+             */
+            node: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /**
+             * W
+             * @default 6
+             */
+            w: number;
+        };
+        /** PnEntry */
+        PnEntry: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /** Who */
+            who: string;
+            /** Node */
+            node: string;
+            /** Run */
+            run: number | null;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+        };
+        /** PnJournal */
+        PnJournal: {
+            /** Entries */
+            entries: components["schemas"]["PnEntry"][];
+            /** Next */
+            next: number | null;
         };
         /** PnActive */
         PnActive: {
@@ -20481,6 +20685,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PnCard"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_scenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnScenario"];
+                };
+            };
+        };
+    };
+    studio_api_graph_set_layout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PnLayoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnTile"][];
+                };
+            };
+        };
+    };
+    studio_api_graph_journal_page: {
+        parameters: {
+            query?: {
+                before?: number | null;
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                graph_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PnJournal"];
                 };
             };
         };

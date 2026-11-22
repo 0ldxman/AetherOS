@@ -16,6 +16,7 @@
   import Policies from "./routes/Policies.svelte";
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
+  import Scenario from "./routes/Scenario.svelte";
   import GraphEditor from "./routes/graph/Editor.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
@@ -58,6 +59,7 @@
     | { name: "policies"; id: number | null }
     | { name: "systems"; code: string | null; tab: string }
     | { name: "world"; tab: string }
+    | { name: "scenario"; id: number; tab: string }
     | { name: "graph"; id: number }
     | { name: "formats"; id: string | null }
     | { name: "encodings"; id: string | null }
@@ -91,6 +93,8 @@
     if (match("/machines", route.path)) return { name: "machines" };
     if ((found = match("/policies/:id", route.path))) return { name: "policies", id: +found.id };
     if (match("/policies", route.path)) return { name: "policies", id: null };
+    if ((found = match("/world/scenario/:id/:tab", route.path))) return { name: "scenario", id: +found.id, tab: found.tab };
+    if ((found = match("/world/scenario/:id", route.path))) return { name: "scenario", id: +found.id, tab: "flow" };
     if ((found = match("/world/:tab", route.path))) return { name: "world", tab: found.tab };
     if (match("/world", route.path)) return { name: "world", tab: "scenarios" };
     if (match("/time", route.path)) return { name: "world", tab: "time" };               // прежние адреса разделов, что стали вкладками «Мира»
@@ -246,6 +250,8 @@
       {#key page.slug}<Scenes slug={page.slug} />{/key}
     {:else if page.name === "world"}
       <World tab={page.tab} />
+    {:else if page.name === "scenario"}
+      {#key page.id}<Scenario id={page.id} tab={page.tab} />{/key}
     {:else if page.name === "graph"}
       {#key page.id}<GraphEditor id={page.id} />{/key}
     {:else if page.name === "formats"}
