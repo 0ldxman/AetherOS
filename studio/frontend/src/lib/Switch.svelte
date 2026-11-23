@@ -1,10 +1,11 @@
 <script lang="ts">
   // Выключатель с подписью: «включено» значит, что у поля есть значение, «выключено» что поле пустое.
-  let { checked, label, onchange }: { checked: boolean; label: string; onchange: (next: boolean) => void } = $props();
+  // name — имя для чтеца с экрана, когда подпись («стоит») сама не говорит, о чём выключатель.
+  let { checked, label, name, onchange }: { checked: boolean; label: string; name?: string; onchange: (next: boolean) => void } = $props();
 </script>
 
 <label class="switch">
-  <input type="checkbox" role="switch" {checked} onchange={(event) => onchange(event.currentTarget.checked)} />
+  <input type="checkbox" role="switch" {checked} aria-label={name} onchange={(event) => onchange(event.currentTarget.checked)} />
   <span class="track" aria-hidden="true"></span>
   <span class="text">{label}</span>
 </label>

@@ -119,6 +119,10 @@ class WsLabels(Schema):
     labels: dict[str, str]
 
 
+class WsDescribe(Schema):
+    label: str = ""
+
+
 class WsState(Schema):
     flags: list[WsFlag]
     counters: list[WsCounter]
@@ -302,6 +306,17 @@ def set_counter(request, name: str, body: WsAmount):
 def delete_counter(request, name: str):
     _exists(values.COUNT, name)
     _drop(values.COUNT, name)
+    return read(request)
+
+
+@router.put("/{kind}/{name}/label", response=WsState)
+def describe(request, kind: str, name: str, body: WsDescribe):
+    """Подпись переменной для авторов (метки или счётчика): значение и журнал не трогаются."""
+    found = {"flags": values.TAG, "counters": values.COUNT}.get(kind)
+    if found is None:
+        raise Http404
+    _exists(found, name)
+    values.describe(found, values.WORLD, name, label=body.label.strip()[:200])
     return read(request)
 
 

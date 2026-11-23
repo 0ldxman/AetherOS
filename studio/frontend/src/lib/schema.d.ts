@@ -4462,6 +4462,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/studio/api/world/state/{kind}/{name}/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Describe
+         * @description Подпись переменной для авторов (метки или счётчика): значение и журнал не трогаются.
+         */
+        put: operations["studio_api_worldstate_describe"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/studio/api/world/state/counters/{name}/labels": {
         parameters: {
             query?: never;
@@ -11473,6 +11493,14 @@ export interface components {
         WsAmount: {
             /** Value */
             value: number;
+        };
+        /** WsDescribe */
+        WsDescribe: {
+            /**
+             * Label
+             * @default
+             */
+            label: string;
         };
         /** WsLabels */
         WsLabels: {
@@ -20044,6 +20072,33 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WsState"];
+                };
+            };
+        };
+    };
+    studio_api_worldstate_describe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WsDescribe"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

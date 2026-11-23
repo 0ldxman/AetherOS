@@ -64,3 +64,14 @@ class UsesTests(TestCase):
         Graph.objects.create(slug="c", title="Gamma", doc={"nodes": [{"id": "t", "type": "note", "data": {"text": "nothing here"}}], "wires": []})
         found = self.client.get("/studio/api/world/state/uses").json()
         self.assertEqual({name: [g["title"] for g in graphs] for name, graphs in found.items()}, {"core-online": ["Alpha"], "fragments": ["Beta"]})
+
+    def test_label_is_changed_without_touching_the_value(self):
+        self.client.post("/studio/api/world/state/flags", {"name": "gate", "label": "old", "on": True}, content_type="application/json")
+        self.client.post("/studio/api/world/state/counters", {"name": "act", "label": ""}, content_type="application/json")
+        data = self.client.put("/studio/api/world/state/flags/gate/label", {"label": "ворота открыты"}, content_type="application/json").json()
+        flag = next(f for f in data["flags"] if f["name"] == "gate")
+        self.assertEqual((flag["label"], flag["on"]), ("ворота открыты", True))
+        data = self.client.put("/studio/api/world/state/counters/act/label", {"label": "акт"}, content_type="application/json").json()
+        self.assertEqual(next(c for c in data["counters"] if c["name"] == "act")["label"], "акт")
+        self.assertEqual(self.client.put("/studio/api/world/state/flags/ghost/label", {"label": "x"}, content_type="application/json").status_code, 404)
+        self.assertEqual(self.client.put("/studio/api/world/state/moments/gate/label", {"label": "x"}, content_type="application/json").status_code, 404)

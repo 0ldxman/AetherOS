@@ -13762,6 +13762,63 @@
     ]
    }
   },
+  "/studio/api/world/state/{kind}/{name}/label": {
+   "put": {
+    "operationId": "studio_api_worldstate_describe",
+    "summary": "Describe",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "kind",
+      "schema": {
+       "title": "Kind",
+       "type": "string"
+      },
+      "required": true
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      },
+      "required": true
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "OK",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/WsState"
+        }
+       }
+      }
+     }
+    },
+    "description": "Подпись переменной для авторов (метки или счётчика): значение и журнал не трогаются.",
+    "tags": [
+     "world-state"
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WsDescribe"
+       }
+      }
+     },
+     "required": true
+    },
+    "security": [
+     {
+      "StudioAuth": []
+     }
+    ]
+   }
+  },
   "/studio/api/world/state/counters/{name}/labels": {
    "put": {
     "operationId": "studio_api_worldstate_counter_labels",
@@ -31306,6 +31363,17 @@
      "value"
     ],
     "title": "WsAmount",
+    "type": "object"
+   },
+   "WsDescribe": {
+    "properties": {
+     "label": {
+      "default": "",
+      "title": "Label",
+      "type": "string"
+     }
+    },
+    "title": "WsDescribe",
     "type": "object"
    },
    "WsLabels": {

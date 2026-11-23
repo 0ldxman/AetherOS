@@ -57,19 +57,24 @@
     const { data: next, error } = await api.DELETE("/studio/api/world/state/counters/{name}", { params: { path: { name } } });
     take(next, error);
   }
-  let labeling = $state<{ name: string; text: string } | null>(null);
-  function openLabels(c: Counter) {
-    labeling = { name: c.name, text: Object.entries(c.labels).sort((a, b) => +a[0] - +b[0]).map(([k, v]) => `${k} = ${v}`).join("\n") };
+  // ---------- правка переменной: подпись и подписи значений ----------
+  type Edit = { kind: "flag" | "counter"; name: string; label: string; labels: { value: string | number; text: string }[] };
+  let edit = $state<Edit | null>(null);
+  function openEdit(kind: "flag" | "counter", name: string, label: string, labels: Record<string, string> = {}) {
+    const rows = Object.entries(labels).sort((a, b) => +a[0] - +b[0]).map(([value, text]) => ({ value, text }));
+    edit = { kind, name, label, labels: kind === "counter" && !rows.length ? [{ value: "", text: "" }] : rows };
   }
-  async function saveLabels() {
-    if (!labeling) return;
-    const labels: Record<string, string> = {};
-    for (const line of labeling.text.split("\n")) {
-      const [k, ...rest] = line.split("=");
-      if (k && rest.length && /^-?\d+$/.test(k.trim())) labels[k.trim()] = rest.join("=").trim();
+  async function saveEdit() {
+    if (!edit) return;
+    busy = true;
+    const kind = edit.kind === "flag" ? "flags" : "counters";
+    let { data: next, error } = await api.PUT("/studio/api/world/state/{kind}/{name}/label", { params: { path: { kind, name: edit.name } }, body: { label: edit.label } });
+    if (!error && edit.kind === "counter") {
+      const labels = Object.fromEntries(edit.labels.filter((r) => /^-?\d+$/.test(String(r.value).trim()) && r.text.trim()).map((r) => [String(r.value).trim(), r.text.trim()]));
+      ({ data: next, error } = await api.PUT("/studio/api/world/state/counters/{name}/labels", { params: { path: { name: edit.name } }, body: { labels } }));
     }
-    const { data: next, error } = await api.PUT("/studio/api/world/state/counters/{name}/labels", { params: { path: { name: labeling.name } }, body: { labels } });
-    if (take(next, error)) labeling = null;
+    busy = false;
+    if (take(next, error)) { said = `world:${edit.name} сохранена`; edit = null; }
   }
 
   // ---------- моменты ----------
@@ -177,18 +182,31 @@
   let uses = $state<Record<string, Use[]>>({});                      // где имя встречается в сценариях (грузится один раз)
   let query = $state("");
   let varForm = $state<{ type: "flag" | "counter"; name: string; label: string } | null>(null);
-  let editing = $state<{ name: string; value: number } | null>(null);
+  let editing = $state<{ name: string; value: number; from: number } | null>(null);
   let said = $state("");
   onMount(() => { api.GET("/studio/api/world/state/uses").then(({ data: found }) => { if (found) uses = found; }); });
 
-  type Row = { kind: "flag" | "counter"; name: string; label: string; flag?: Schemas["WsFlag"]; counter?: Counter };
-  const rows = $derived<Row[]>(
-    data
-      ? [...data.flags.map((f): Row => ({ kind: "flag", name: f.name, label: f.label, flag: f })), ...data.counters.map((c): Row => ({ kind: "counter", name: c.name, label: c.label, counter: c }))]
-          .filter((r) => !query.trim() || `${r.name} ${r.label}`.toLowerCase().includes(query.trim().toLowerCase()))
-          .sort((a, b) => a.name.localeCompare(b.name))
-      : [],
-  );
+  const match = (name: string, label: string) => !query.trim() || `${name} ${label}`.toLowerCase().includes(query.trim().toLowerCase());
+  const flags = $derived((data?.flags ?? []).filter((f) => match(f.name, f.label)).toSorted((a, b) => a.name.localeCompare(b.name)));
+  const counters = $derived((data?.counters ?? []).filter((c) => match(c.name, c.label)).toSorted((a, b) => a.name.localeCompare(b.name)));
+
+  // где используется: сценарии (по тексту графа, с сервера), триггеры и моменты этой страницы
+  type Where = { key: string; text: string; href: string };
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+  function usesOf(name: string): Where[] {
+    const out: Where[] = (uses[name] ?? []).map((u) => ({ key: `s${u.id}`, text: u.title, href: `#/world/scenario/${u.id}/flow` }));
+    const said = new RegExp(`world:${escape(name)}(?![\\w-])`);
+    for (const t of data?.triggers ?? []) {
+      const acts = JSON.stringify(t.actions ?? []);
+      if (said.test(t.condition_text) || acts.includes(`"name":"${name}"`)) out.push({ key: `t${t.id}`, text: `триггер ${t.name}`, href: "" });
+    }
+    for (const m of data?.moments ?? []) if (m.name === name) out.push({ key: `m${m.id}`, text: `момент ${m.name}`, href: "" });
+    return out;
+  }
+  async function copy(text: string) {
+    try { await navigator.clipboard.writeText(text); toast(`Скопировано: ${text}`); said = `${text} скопировано`; }
+    catch { toast(`Не удалось скопировать. Имя: ${text}`, "error"); }
+  }
   async function createVar() {
     if (!varForm) return;
     busy = true;
@@ -201,11 +219,18 @@
   }
   async function commitEdit() {
     if (!editing) return;
-    const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/set", { params: { path: { name: editing.name } }, body: { value: Math.trunc(Number(editing.value) || 0) } });
-    if (take(next, error)) { said = `world:${editing.name}: значение задано`; editing = null; }
+    const target = editing;
+    const value = Math.trunc(Number(target.value) || 0);
+    if (value === target.from) { editing = null; return; }
+    const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/set", { params: { path: { name: target.name } }, body: { value } });
+    if (take(next, error)) said = `world:${target.name} = ${value}`;
+    editing = null;
+  }
+  async function step(name: string, delta: number) {
+    const { data: next, error } = await api.POST("/studio/api/world/state/counters/{name}/add", { params: { path: { name } }, body: { value: delta } });
+    if (take(next, error)) said = `world:${name} = ${next?.counters.find((c) => c.name === name)?.value ?? ""}`;
   }
   const focusOnMount = (el: HTMLInputElement) => { el.focus(); el.select(); };
-  const place = (list: Use[] | undefined) => (list ?? []);
 </script>
 
 <PageHead title="Состояние мира">
@@ -220,63 +245,86 @@
 
 {#if data}
   <section class="block" aria-labelledby="h-vars">
-    <h2 id="h-vars">Переменные <span class="count">{rows.length}</span></h2>
-    {#if rows.length}
-      <div class="tablewrap">
-        <table class="grid">
-          <thead><tr><th scope="col">Имя</th><th scope="col">Значение</th><th scope="col">Пороги</th><th scope="col">В сценариях</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
-          <tbody>
-            {#each rows as r (r.kind + ":" + r.name)}
-              <tr>
-                <td class="name">
-                  <code>world:{r.name}</code>
-                  <span class="muted small">{r.kind === "flag" ? "метка" : "счётчик"}{r.label ? ` · ${r.label}` : ""}</span>
-                </td>
-                <td class="value">
-                  {#if r.flag}
-                    {@const f = r.flag}
-                    <Switch checked={f.on} label={f.on ? "стоит" : "снята"} onchange={(next) => setFlag(f.name, next, f.label)} />
-                    {#if f.changed_at}<span class="muted small" title="{f.changed_by}">{when(f.changed_at)}</span>{/if}
-                  {:else if r.counter}
-                    {@const c = r.counter}
+    <h2 id="h-vars" class="sr">Переменные</h2>
+    {#if !data.flags.length && !data.counters.length}
+      <div class="empty">
+        <p class="muted">Переменных пока нет. Метка — да или нет («ворота открыты»), счётчик — число («собрано фрагментов»). Условия и сценарии читают их как <code>world:имя</code>.</p>
+        <button class="btn primary" onclick={() => (varForm = { type: "flag", name: "", label: "" })}>Добавить первую</button>
+      </div>
+    {:else if !flags.length && !counters.length}
+      <p class="muted small">Ничего не нашлось по «{query}». <button class="btn ghost" onclick={() => (query = "")}>Показать все</button></p>
+    {:else}
+      {#if flags.length}
+        <h3 class="group">Метки <span class="count">{flags.length}</span><span class="muted hint">да или нет · в условиях <code>world:имя</code></span></h3>
+        <div class="tablewrap">
+          <table class="grid fixed">
+            <colgroup><col class="c-name" /><col class="c-val" /><col class="c-mid" /><col class="c-uses" /><col class="c-acts" /></colgroup>
+            <thead><tr><th scope="col">Имя</th><th scope="col">Значение</th><th scope="col">Изменена</th><th scope="col">Где используется</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
+            <tbody>
+              {#each flags as f (f.name)}
+                <tr>
+                  <td>{@render nameCell(f.name, f.label)}</td>
+                  <td><Switch checked={f.on} label={f.on ? "стоит" : "снята"} name="Метка {f.name}" onchange={(next) => setFlag(f.name, next, f.label)} /></td>
+                  <td class="muted small one" title={f.changed_by}>{f.changed_at ? when(f.changed_at) : "—"}{f.changed_by ? ` · ${f.changed_by}` : ""}</td>
+                  <td class="one">{@render usesCell(f.name)}</td>
+                  <td class="acts">{@render actsCell("flag", f.name, f.label, {})}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+      {#if counters.length}
+        <h3 class="group">Счётчики <span class="count">{counters.length}</span><span class="muted hint">число · в условиях <code>world:имя&gt;=7</code></span></h3>
+        <div class="tablewrap">
+          <table class="grid fixed">
+            <colgroup><col class="c-name" /><col class="c-val" /><col class="c-mid" /><col class="c-uses" /><col class="c-acts" /></colgroup>
+            <thead><tr><th scope="col">Имя</th><th scope="col">Значение</th><th scope="col">Пороги</th><th scope="col">Где используется</th><th scope="col"><span class="sr">Действия</span></th></tr></thead>
+            <tbody>
+              {#each counters as c (c.name)}
+                <tr>
+                  <td>{@render nameCell(c.name, c.label)}</td>
+                  <td class="value">
                     <span class="stepper">
-                      <button class="btn ghost" onclick={() => bump(c.name, -1)} aria-label="Уменьшить world:{c.name} на 1"><Icon name="minus" size={14} /></button>
+                      <button class="btn ghost" onclick={() => step(c.name, -1)} aria-label="Уменьшить {c.name} на 1"><Icon name="minus" size={14} /></button>
                       {#if editing?.name === c.name}
-                        <input class="field num" type="number" bind:value={editing.value} use:focusOnMount aria-label="Значение world:{c.name}"
-                               onkeydown={(e) => { if (e.key === "Enter") commitEdit(); else if (e.key === "Escape") editing = null; }} onblur={() => (editing = null)} />
+                        <input class="field num" type="number" bind:value={editing.value} use:focusOnMount aria-label="Значение {c.name}"
+                               onkeydown={(e) => { if (e.key === "Enter") commitEdit(); else if (e.key === "Escape") editing = null; }} onblur={commitEdit} />
                       {:else}
-                        <button class="numbtn" onclick={() => (editing = { name: c.name, value: c.value })} title="Задать значение" aria-label="world:{c.name} = {c.value}. Задать значение">{c.value}</button>
+                        <button class="numbtn" onclick={() => (editing = { name: c.name, value: c.value, from: c.value })} title="Нажмите, чтобы задать число" aria-label="{c.name} = {c.value}. Задать число">{c.value}</button>
                       {/if}
-                      <button class="btn ghost" onclick={() => bump(c.name, 1)} aria-label="Увеличить world:{c.name} на 1"><Icon name="plus" size={14} /></button>
+                      <button class="btn ghost" onclick={() => step(c.name, 1)} aria-label="Увеличить {c.name} на 1"><Icon name="plus" size={14} /></button>
                     </span>
                     {#if c.labels[String(c.value)]}<span class="vlabel">{c.labels[String(c.value)]}</span>{/if}
-                  {/if}
-                </td>
-                <td class="thr">
-                  {#if r.counter && r.counter.thresholds.length}
-                    {#each r.counter.thresholds as t (t.op + t.value + t.trigger)}<span class="chip" class:hit={r.counter.value >= t.value} title="Триггер {t.trigger}">{t.op}{t.value} → {t.trigger}</span>{/each}
-                  {:else}<span class="muted">—</span>{/if}
-                </td>
-                <td class="uses">
-                  {#each place(uses[r.name]).slice(0, 2) as u (u.id)}<a class="chip link" href="#/world/scenario/{u.id}/flow">{u.title}</a>{/each}
-                  {#if place(uses[r.name]).length > 2}<span class="muted small" title={place(uses[r.name]).slice(2).map((u) => u.title).join(", ")}>+{place(uses[r.name]).length - 2}</span>{/if}
-                  {#if !place(uses[r.name]).length}<span class="muted" title="Ни один сценарий не называет эту переменную">—</span>{/if}
-                </td>
-                <td class="acts">
-                  {#if r.counter}<button class="btn ghost" onclick={() => openLabels(r.counter!)} aria-label="Подписи значений world:{r.name}" title="Подписи значений: акты, уровни тревоги"><Icon name="pencil" size={14} /></button>{/if}
-                  <button class="btn ghost danger" onclick={() => (r.flag ? dropFlag(r.name) : dropCounter(r.name))} aria-label="Удалить world:{r.name}" title="Удалить"><Icon name="trash" size={14} /></button>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {:else if query}
-      <p class="muted small">Ничего не нашлось по «{query}».</p>
-    {:else}
-      <p class="muted small">Переменных пока нет. Метка — да или нет («дверь открыта»), счётчик — число («собрано фрагментов»).</p>
+                  </td>
+                  <td>
+                    {#each c.thresholds as t (t.op + t.value + t.trigger)}<span class="chip" class:hit={c.value >= t.value} title="Триггер {t.trigger}: {c.value >= t.value ? 'порог пройден' : 'ещё не дошли'}">{t.op}{t.value} → {t.trigger}</span>{:else}<span class="muted">—</span>{/each}
+                  </td>
+                  <td class="one">{@render usesCell(c.name)}</td>
+                  <td class="acts">{@render actsCell("counter", c.name, c.label, c.labels)}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
     {/if}
   </section>
+
+  {#snippet nameCell(name: string, label: string)}
+    <span class="nm"><code>{name}</code><button class="copy" onclick={() => copy(`world:${name}`)} aria-label="Скопировать world:{name}" title="Скопировать world:{name}"><Icon name="copy" size={12} /></button></span>
+    {#if label}<span class="muted small lbl">{label}</span>{/if}
+  {/snippet}
+  {#snippet usesCell(name: string)}
+    {@const found = usesOf(name)}
+    {#each found.slice(0, 2) as u (u.key)}{#if u.href}<a class="chip link" href={u.href} title={u.text}>{u.text}</a>{:else}<span class="chip" title={u.text}>{u.text}</span>{/if}{/each}
+    {#if found.length > 2}<span class="muted small more" title={found.slice(2).map((u) => u.text).join(", ")}>+{found.length - 2}</span>{/if}
+    {#if !found.length}<span class="muted" title="Ни сценарии, ни триггеры, ни моменты не называют эту переменную">не используется</span>{/if}
+  {/snippet}
+  {#snippet actsCell(kind: "flag" | "counter", name: string, label: string, labels: Record<string, string>)}
+    <button class="btn ghost" onclick={() => openEdit(kind, name, label, labels)} aria-label="Изменить {name}" title={kind === "counter" ? "Подпись и подписи значений" : "Подпись"}><Icon name="pencil" size={14} /></button>
+    <button class="btn ghost danger" onclick={() => (kind === "flag" ? dropFlag(name) : dropCounter(name))} aria-label="Удалить {name}" title="Удалить"><Icon name="trash" size={14} /></button>
+  {/snippet}
 
   <section class="block" aria-labelledby="h-triggers">
     <div class="bhead"><h2 id="h-triggers">Триггеры <span class="count">{data.triggers.length}</span></h2><button class="btn" onclick={() => editTrigger(null)}>+ Триггер</button></div>
@@ -355,10 +403,26 @@
   </Dialog>
 {/if}
 
-{#if labeling}
-  <Dialog title="Подписи значений world:{labeling.name}" confirm="Сохранить" onsubmit={saveLabels} onclose={() => (labeling = null)}>
-    <textarea class="field mono" rows="6" bind:value={labeling.text} placeholder={"1 = Тишина\n2 = Архив\n3 = Буря"}></textarea>
-    <p class="muted small">По строке: число = подпись. Так счётчик <code>act</code> становится актами: на пульте видно «2 · Архив», а контент акта открывается условием <code>world:act&gt;=2</code>.</p>
+{#if edit}
+  <Dialog title="world:{edit.name}" confirm="Сохранить" {busy} onsubmit={saveEdit} onclose={() => (edit = null)}>
+    <div class="form">
+      <label><span class="label">Подпись для авторов</span><input class="field" bind:value={edit.label} placeholder={edit.kind === "flag" ? "ворота открыты" : "собрано фрагментов"} /></label>
+      {#if edit.kind === "counter"}
+        <div class="pairsbox">
+          <span class="label">Подписи значений</span>
+          <p class="muted small">Так счётчик становится, например, актами: значение 2 видно как «Архив», а контент акта открывается условием <code>world:{edit.name}&gt;=2</code>.</p>
+          <div class="pairs">
+            {#each edit.labels as row, i (i)}
+              <input class="field mono" type="number" bind:value={row.value} aria-label="Значение, строка {i + 1}" placeholder="2" />
+              <input class="field" bind:value={row.text} aria-label="Подпись, строка {i + 1}" placeholder="Архив" />
+              <button class="btn ghost" type="button" onclick={() => edit?.labels.splice(i, 1)} aria-label="Убрать строку {i + 1}"><Icon name="close" size={13} /></button>
+            {/each}
+          </div>
+          <button class="btn ghost addrow" type="button" onclick={() => edit?.labels.push({ value: "", text: "" })}><Icon name="plus" size={13} />Строка</button>
+        </div>
+      {/if}
+      <p class="muted small">Имя не меняется: на него ссылаются условия и сценарии.</p>
+    </div>
   </Dialog>
 {/if}
 
@@ -439,26 +503,41 @@
 
   .tablewrap { overflow-x: auto; }
   table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.grid.fixed { min-width: 760px; table-layout: fixed; }
+  .c-name { width: 26%; } .c-val { width: 22%; } .c-mid { width: 20%; } .c-uses { width: 24%; } .c-acts { width: 84px; }
   .grid th { text-align: left; padding: 4px 10px 6px; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
-  .grid td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  .grid td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
   .grid tr:last-child td { border-bottom: 0; }
   .grid tbody tr:hover { background: var(--panel-2); }
   .grid tr.off { opacity: 0.6; }
-  .name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 190px; }
-  .name code { color: var(--text); font-weight: 600; }
+  .block > h3.group { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--text); text-transform: none; letter-spacing: 0; }
+  .block > h3.group:not(:first-of-type) { margin-top: 18px; }
+  .hint { font-size: 12px; font-weight: 400; }
+  .nm { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; }
+  .nm code { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .copy { flex: none; display: inline-flex; padding: 3px; border: 0; border-radius: var(--radius-s); background: transparent; color: var(--muted); cursor: pointer; opacity: 0; }
+  tr:hover .copy, .copy:focus-visible { opacity: 1; }
+  .copy:hover { color: var(--text); background: var(--raise); }
+  .one { white-space: nowrap; }
+  .one .chip { max-width: calc(50% - 16px); }
+  .lbl { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .empty { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 620px; }
+  .empty p { margin: 0; }
   .value { white-space: nowrap; }
-  .value :global(.switch) { vertical-align: middle; }
   .stepper { display: inline-flex; align-items: center; gap: 2px; vertical-align: middle; }
   .stepper .btn { height: 28px; width: 28px; padding: 0; justify-content: center; }
-  .numbtn { min-width: 44px; height: 28px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-s); background: transparent; color: var(--text); font: inherit; font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: text; text-align: center; }
+  .numbtn { min-width: 44px; height: 28px; padding: 0 6px; border: 1px dashed transparent; border-radius: var(--radius-s); background: transparent; color: var(--text); font: inherit; font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: text; text-align: center; }
   .numbtn:hover { border-color: var(--line); background: var(--panel-2); }
   .field.num { width: 64px; height: 28px; padding: 0 6px; text-align: center; font-family: var(--mono); }
   .vlabel { margin-left: 8px; font-size: 12px; color: var(--accent); }
-  .thr, .uses { max-width: 280px; }
-  .chip { display: inline-block; margin: 1px 4px 1px 0; padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; line-height: 19px; white-space: nowrap; }
+  .chip { display: inline-block; margin: 1px 4px 1px 0; padding: 0 8px; border-radius: 999px; background: var(--raise); color: var(--muted); font-size: 11.5px; line-height: 19px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
   .chip.hit { color: var(--ok, #4cc38a); }
   .chip.link { color: var(--text); text-decoration: none; }
   .chip.link:hover { background: var(--panel-2); text-decoration: underline; }
+  .pairsbox { display: flex; flex-direction: column; gap: 6px; }
+  .pairsbox p { margin: 0; }
+  .pairs { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .addrow { align-self: flex-start; }
   .acts { white-space: nowrap; text-align: right; }
   .acts .btn { height: 28px; padding: 0 7px; }
   .cond { white-space: normal; overflow-wrap: anywhere; }
