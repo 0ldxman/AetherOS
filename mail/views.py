@@ -200,12 +200,25 @@ def send_letter(request):
     box = _box(request)
     if box.user is None:
         return JsonResponse({"error": "sign in to send mail"}, status=403)
-    data = json.loads(request.body or b"{}")
+    try:
+        data = json.loads(request.body or b"{}")
+    except ValueError:
+        return JsonResponse({"error": "bad request"}, status=400)
+    if not isinstance(data, dict):
+        return JsonResponse({"error": "bad request"}, status=400)
     attachment = None
     if data.get("attachment"):
         attachment = box.view.get(str(data["attachment"]))
         if attachment is None or attachment.is_dir:
             return JsonResponse({"error": "no such file to attach"}, status=400)
+        if box.profile is not None:                       # как в списке files(): приложить можно только то, что вправе читать
+            from filesystem import rights
+            from machines.access.groups import principal_for
+
+            try:
+                rights.check(box.view, principal_for(box.profile), attachment.path, "r")
+            except rights.Denied:
+                return JsonResponse({"error": "permission denied"}, status=403)
     reply_item = _letter_item(box, data.get("reply", "")) if data.get("reply") else None
     forward_item = _letter_item(box, data.get("forward", "")) if data.get("forward") else None
     if data.get("forward") and forward_item is None and box.letter(data["forward"]) is None:

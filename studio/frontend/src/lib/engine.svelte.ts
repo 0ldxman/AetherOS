@@ -15,12 +15,6 @@ export function engine() {
   return { get catalog() { return catalog; } };
 }
 
-// Обновить подсказки полей (после создания ключа, раздела, станции).
-export async function reloadEngine() {
-  const { data } = await api.GET("/studio/api/engine/catalog");
-  if (data) catalog = data;
-}
-
 // Как действие выглядит в списке: шаблон summary с подставленными полями.
 export function summary(action: Act): string {
   engine();                                  // первый вызов запускает загрузку; когда словарь придёт, подписи пересчитаются

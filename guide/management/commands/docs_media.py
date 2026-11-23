@@ -39,6 +39,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options["prepare_world"]:
+            db = settings.DATABASES["default"]
+            temporary = "sqlite" in db["ENGINE"] and str(db["NAME"]).startswith(tempfile.gettempdir())
+            if not (temporary or getattr(settings, "TESTING", False)):
+                raise CommandError("--prepare-world создаёт суперадмина: только во временной базе съёмки.")
             self.stdout.write(json.dumps(media.prepare_world()))
             return
         out = Path(options["out"]) if options["out"] else pages.MEDIA

@@ -7,7 +7,7 @@ Django 6.1, игра-ОС. Пользователь пишет по-русски
 - Тесты только на sqlite (у базы по умолчанию нет прав создавать тестовую):
   `DATABASE_URL=sqlite:////tmp/t.sqlite3 .venv/bin/python manage.py test <приложения> 2>&1 | tail -5`
 - После правки гонять только затронутые приложения.
-- Полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support guide air world graph engine forum`) — только когда менялись модели, миграции или общие модули (`machines`, `filesystem`, `engine`), либо один раз в конце пачки правок, а не после каждого коммита.
+- Полный набор (`terminal filesystem machines desktop wiki mail config users secure assets scenes documents map monitor studio team news support guide air world graph engine forum characters`) — только когда менялись модели, миграции или общие модули (`machines`, `filesystem`, `engine`), либо один раз в конце пачки правок, а не после каждого коммита.
 - Полный набор запускать с `--parallel 4` и в фоне: не ждать, продолжать работу, на падение реагировать по результату.
   С `--parallel 4` ~2,5 мин вместо 6. В тестах кэш локальный (`TESTING` в settings), не общий Redis: иначе процессы читают чужой кэш.
 - Node 22 в `/config/.local/node/bin` (добавить в PATH). Студия: `cd studio/frontend && npm run api && npm run check && npm run build`.

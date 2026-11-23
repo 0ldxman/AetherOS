@@ -6,7 +6,7 @@
 гость без входа (witness) попадает на aether-null.
 """
 from django.contrib.auth.hashers import make_password
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from filesystem import appfile
@@ -118,6 +118,10 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        from django.conf import settings
+
+        if not (settings.DEBUG or getattr(settings, "TESTING", False)):
+            raise CommandError("seed_demo заводит демо-вход ivan/demo: запускается только при DEBUG.")
         FileFormat.objects.get_or_create(
             name="log", defaults={"title": "LOG authentication log", "extension": ".log", "kind": "text", "template": "{body}", "content": "none"},
         )

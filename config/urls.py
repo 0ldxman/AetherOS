@@ -49,6 +49,4 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += [
         re_path(r"^static/(?P<path>.*)$", serve_static),
-        path("desktop/", include("desktop.urls")),
-        path("wiki/", include("wiki.urls")),
     ]

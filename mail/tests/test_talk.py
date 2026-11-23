@@ -6,6 +6,7 @@
 import json
 
 from django.contrib.auth import get_user_model
+from filesystem.models import Placement
 from django.test import TestCase, override_settings
 from django.urls import get_script_prefix, set_script_prefix
 from django.utils import timezone
@@ -83,6 +84,8 @@ class TalkTests(TestCase):
         cls.main = Machine.objects.create(name="Main", hostname="aether-main")
         make_app(cls.main, label="intercom", icon="mail", path="/apps/mail/")
         make_file(cls.main, "/home/ivan/report.txt", body="отчёт")
+        secret = make_file(cls.main, "/home/ivan/secret.txt", body="тайна")
+        Placement.objects.filter(pk=secret.placement.pk).update(owner="root", mode="600")
         cls.ivan = User.objects.create_user("ivan", password="pw")
         cls.profile = MachineProfile.objects.create(machine=cls.main, user=cls.ivan, name="Ivan", login="ivan", freq=1)
         cls.captain = MachineProfile.objects.create(machine=cls.main, name="Captain", login="captain", freq=2)
@@ -281,6 +284,13 @@ class TalkAppTests(TestCase):
         subjects = [m["subject"] for m in self.client.get("/apps/mail/api/messages/").json()["messages"]]
         self.assertIn("Проходите", subjects)
         self.assertIn("Re: Код?", subjects)
+
+    def test_an_attachment_needs_the_right_to_read(self):
+        send = lambda path: self.client.post("/apps/mail/api/send/", data=json.dumps({"to": "guard@port", "subject": "x", "text": "x", "attachment": path}),
+                                             content_type="application/json")
+        self.assertIn(send("/home/ivan/secret.txt").status_code, (400, 403))                # закрытое приложить нельзя
+        self.assertNotEqual(send("/home/ivan/report.txt").status_code, 403)
+        self.assertEqual(self.client.post("/apps/mail/api/send/", data="[1]", content_type="application/json").status_code, 400)
 
     def test_the_file_picker_lists_the_home_of_the_account(self):
         data = self.client.get("/apps/mail/api/files/").json()

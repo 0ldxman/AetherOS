@@ -209,6 +209,13 @@ def doc_of(graph):
     return found[1]
 
 
+def rebuild_dependents(graph):
+    """Старты графов, которые вкладывают этот сценарий («Сценарий»): их развёрнутый документ изменился вместе с ним."""
+    for other in Graph.objects.exclude(pk=graph.pk).only("id", "slug", "doc"):
+        if graph.slug in str(other.doc) and any(slug == graph.slug for slug, _ in Doc(flatten(other.doc, other.slug)).deps):
+            rebuild_starts(other)
+
+
 def rebuild_starts(graph):
     """Выписать старты: существительные без входа и события их подключённых выходов."""
     doc = Doc(flatten(graph.doc, graph.slug))
@@ -268,11 +275,11 @@ def _character_act(run, kind, data):
                     raise outbox.OutboxError(f"нет темы «{title}»")
                 outbox.to_topic(character, topic, text, graph=slug)
             else:
-                outbox.say(character, None, Inbound.Channel.FORUM, text, section=section, title=title, graph=slug)
+                _delivered(outbox.say(character, None, Inbound.Channel.FORUM, text, section=section, title=title, graph=slug))
             return ["next"]
         if channel == "air":
-            outbox.say(character, None, Inbound.Channel.AIR, text, freq=_fill(str(data.get("freq") or ""), run).strip(),
-                       user=run.user, graph=slug)
+            _delivered(outbox.say(character, None, Inbound.Channel.AIR, text, freq=_fill(str(data.get("freq") or ""), run).strip(),
+                                  user=run.user, graph=slug))
             return ["next"]
         from filesystem.models import Item
 
@@ -283,7 +290,7 @@ def _character_act(run, kind, data):
         common = dict(subject=subject, item=item, graph=slug)
         to = data.get("to") or "list"
         if to == "all":
-            outbox.say(character, None, Inbound.Channel.MAIL, text, audience="all", **common)
+            _delivered(outbox.say(character, None, Inbound.Channel.MAIL, text, audience="all", **common))
             return ["next"]
         if to == "list":
             targets = outbox.recipients(_as_list(data.get("targets")))
@@ -298,7 +305,7 @@ def _character_act(run, kind, data):
         if not targets:
             raise outbox.OutboxError("некому отправить")
         for profile in targets:
-            outbox.say(character, None, Inbound.Channel.MAIL, text, account=profile, user=run.user, **common)
+            _delivered(outbox.say(character, None, Inbound.Channel.MAIL, text, account=profile, user=run.user, **common))
     except outbox.OutboxError as error:
         _log(run.graph, f"«{kind.label}»: {error}", run.user)
         return ["fail"]
@@ -1113,6 +1120,16 @@ def _screen(run, doc, node_id, kind):
     return ["fail"] if "fail" in outs else ["next"]
 
 
+def _delivered(reply):
+    """Реплика персонажа не доставлена (ящика нет, сбой): нода идёт в «Не вышло», а не в «Сделано»."""
+    from characters import outbox
+    from characters.models import Reply
+
+    if reply is not None and getattr(reply, "status", None) == Reply.Status.FAILED:
+        raise outbox.OutboxError(reply.error or "не доставлено")
+    return reply
+
+
 def _action_one(run, kind, data, user=None, where=""):
     from engine import actions as engine
     from engine.context import Ctx
@@ -1130,8 +1147,13 @@ def _action_one(run, kind, data, user=None, where=""):
         _log(run.graph, f"«{spec.label}»: {'; '.join(problems)}", run.user)
         return ["fail"]
     try:
-        spec.run(action, ctx)
+        with transaction.atomic():                   # savepoint: сбой действия откатывает только его
+            spec.run(action, ctx)
     except (engine.ActionError, ValueError) as error:
+        _log(run.graph, f"«{spec.label}»: {error}", run.user)
+        return ["fail"]
+    except Exception as error:                       # noqa: BLE001 — любая ошибка действия: «Не вышло», а не тихая остановка потока
+        log.exception("graph action %s failed", spec.name)
         _log(run.graph, f"«{spec.label}»: {error}", run.user)
         return ["fail"]
     return ["next"]
@@ -1860,7 +1882,8 @@ def _drain(run, doc, queue, steps):
                 _finish(run)                                 # конец ветки закрывает её целиком, и недождавшиеся альтернативные ожидания тоже
             continue
         try:
-            outs = _execute(run, doc, node_id, sock)
+            with transaction.atomic():               # savepoint: ошибка базы в ноде не ломает транзакцию вокруг (письмо игрока и т.п.)
+                outs = _execute(run, doc, node_id, sock)
         except Exception as error:                   # noqa: BLE001 — сломанная нода не роняет игру
             log.exception("graph node %s failed", node_id)
             _log(run.graph, f"нода {kind.label}: {error}", run.user)
@@ -1894,7 +1917,7 @@ def start(graph, node_id, out, user=None, ctx=None, repeat=None):
     _hit(run, node_id)
     if user is not None and (ctx or {}).get("event") != N.MANUAL_EVENT:
         journal.note(graph, "start", f"Запустил «{N.titled(kind, doc.data(node_id))}»", journal.name_of(user), node_id, run)
-    return advance(run, doc.next(node_id, out))
+    return _advancing(run, doc.next(node_id, out))
 
 
 def _take(run, event):
@@ -1907,8 +1930,38 @@ def _take(run, event):
     return True
 
 
+_running = contextvars.ContextVar("graph_running", default=None)       # {поток: [(ожидание, событие)]}: потоки, что сейчас идут в этом стеке
+
+
+def _advancing(run, items):
+    """advance с защитой от вложенного продолжения того же потока: событие из его же ноды не будит его посреди хода
+    (иначе внутренний ход сохранит state, а внешний его затрёт). Такие пробуждения выполняются после сохранения хода."""
+    busy = _running.get()
+    own = busy is None
+    if own:
+        busy = {}
+        token = _running.set(busy)
+    busy[run.pk] = []
+    try:
+        result = advance(run, items)
+    finally:
+        later = busy.pop(run.pk, [])
+        if own:
+            _running.reset(token)
+    for wait_pk, event in later:
+        found = Wait.objects.filter(pk=wait_pk).select_related("run").first()
+        if found is not None:
+            resume(found, event)
+    return result
+
+
 def resume(wait, event=None):
-    """Ожидание сработало: снять все ожидания ноды и идти дальше по его выходу."""
+    """Ожидание сработало: снять все ожидания ноды и идти дальше по его выходу. Поток заблокирован на весь ход:
+    два одновременных пробуждения одного потока идут по очереди и не затирают состояние друг друга."""
+    busy = _running.get()
+    if busy is not None and wait.run_id in busy:
+        busy[wait.run_id].append((wait.pk, event))            # тот же поток уже идёт выше по стеку: продолжим, когда он сохранится
+        return None
     with transaction.atomic():
         run = Run.objects.select_for_update().select_related("graph").filter(pk=wait.run_id).first()
         if run is None or run.status != Run.Status.RUNNING:
@@ -1926,7 +1979,7 @@ def resume(wait, event=None):
             run.ctx = {**ctx, "event": event.name, "data": {**(ctx.get("data") or {}), **(event.data or {})},
                        "host": event.host if took else ctx.get("host") or event.host, "login": event.login if took else ctx.get("login") or event.login}
             capture(run, wait.node, event)
-    return advance(run, doc_of(run.graph).next(wait.node, wait.out))
+        return _advancing(run, doc_of(run.graph).next(wait.node, wait.out))
 
 
 def follow(event):
@@ -1955,6 +2008,7 @@ def dispatch(event):
     """Событие из engine.events.emit: разбудить ожидания и запустить старты. Возвращает число затронутых прохождений."""
     depth = _depth.get()
     if depth >= DEPTH:
+        log.warning("graph: событие %s не разослано — цепочка событий глубже %s", event.name, DEPTH)
         return 0
     token = _depth.set(depth + 1)
     touched = 0

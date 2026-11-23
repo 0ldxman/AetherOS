@@ -200,6 +200,8 @@ def ban(actor, user, banned):
 
     if user.is_superuser or user.pk == actor.pk:
         raise PlayerError("Суперадмину и себе вход не отключить.")
+    if user.is_staff and not actor.is_superuser:
+        raise PlayerError("Вход автору отключает только суперадмин.")
     user.is_active = not banned
     user.save(update_fields=["is_active"])
     if banned:

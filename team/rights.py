@@ -45,6 +45,8 @@ FREE = "free"                  # справочники и разборщики 
 
 # последние части пути POST-запросов, которые ничего не меняют (предпросмотр, разбор, проверка, генерация)
 SAFE_POST = {"preview", "parse", "format", "check", "outline", "build", "resolve", "generate", "randomart", "week", "try"}
+# последние части пути POST-запросов, которые удаляют (право «Удалять», как у DELETE)
+DELETE_POST = {"delete", "erase"}
 # последние части пути, которым нужно действие с игроками
 PLAYER_ACTIONS = {"kick", "unlock", "bind", "tokens"}
 
@@ -89,6 +91,14 @@ def rule_for(path, method):
         action = "keys" if "keys" in parts else {"kick": "players", "unlock": "players", "reset": "reset", "ban": "ban"}.get(last, "")
     elif method == "DELETE" and last != "lock" and section != FREE:           # снять свою метку, удалить своё сообщение
         action = "delete"
+    elif method == "POST" and last in DELETE_POST and section != FREE:       # удаление POST-ом: тома, файлы машины, владения, территория
+        action = "delete"
+    elif parts[:2] == ["world", "graphs"] and last in ("reset", "stop"):      # сценарий заново, остановить поток игрока
+        action = "reset"
+    elif section == "machines" and parts[-2:] == ["files", "reset"]:          # откатить изменения игроков на машине
+        action = "reset"
+    elif section == "air" and len(parts) >= 2 and parts[1] == "players":       # заглушить игрока, отобрать передатчик
+        action = "ban"
     return Rule(section, EDIT, action)
 
 

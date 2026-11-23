@@ -250,6 +250,7 @@ def _apply(graph, body):
     graph.title, graph.note, graph.active, graph.doc = body.title.strip()[:120], body.note, body.active, doc
     graph.save()
     runtime.rebuild_starts(graph)
+    runtime.rebuild_dependents(graph)
 
 
 @router.get("/catalog", response=GrCatalog)

@@ -38,6 +38,16 @@ class RuleTests(TestCase):
         self.assertEqual(rights.rule_for("file-formats/txt", "PUT").section, "formats")
         self.assertIsNone(rights.rule_for("unknown/1", "GET"))
 
+    def test_dangerous_posts_need_their_flags(self):
+        self.assertEqual(rights.rule_for("volumes/3/delete", "POST"), rights.Rule("disks", rights.EDIT, "delete"))
+        self.assertEqual(rights.rule_for("machines/3/files/delete", "POST"), rights.Rule("machines", rights.EDIT, "delete"))
+        self.assertEqual(rights.rule_for("map/territory/erase", "POST"), rights.Rule("map", rights.EDIT, "delete"))
+        self.assertEqual(rights.rule_for("world/graphs/5/reset", "POST"), rights.Rule("world", rights.EDIT, "reset"))
+        self.assertEqual(rights.rule_for("world/graphs/5/runs/7/stop", "POST"), rights.Rule("world", rights.EDIT, "reset"))
+        self.assertEqual(rights.rule_for("world/graphs/5/control", "POST"), rights.Rule("world", rights.EDIT))
+        self.assertEqual(rights.rule_for("machines/3/files/reset", "POST"), rights.Rule("machines", rights.EDIT, "reset"))
+        self.assertEqual(rights.rule_for("air/players/4", "PUT"), rights.Rule("air", rights.EDIT, "ban"))
+
 
 @override_settings(FORCE_SCRIPT_NAME=None)
 class StudioRightsTests(TestCase):
@@ -78,6 +88,16 @@ class StudioRightsTests(TestCase):
         self.assertEqual(refused.status_code, 403)
         self.assertIn("выбрасывать", refused.json()["detail"])
         self.assertEqual(self.send("delete", "items/999").status_code, 403)                       # удаление без флага
+
+    def test_authors_are_protected_from_other_authors(self):
+        self.anna.role = Role.objects.create(name="Модератор", rights={"players": "edit"}, actions=["ban", "reset", "players"])
+        self.anna.save()
+        self.as_(self.anna)
+        self.assertEqual(self.send("post", f"players/{self.loose.pk}/ban", {"banned": True}).status_code, 403)       # вход автору — только суперадмин
+        self.assertEqual(self.send("post", f"players/{self.loose.pk}/reset", {"machine": None}).status_code, 403)
+        self.assertEqual(self.send("post", f"players/{self.player.pk}/ban", {"banned": True}).status_code, 200)
+        self.player.refresh_from_db()
+        self.assertFalse(self.player.is_active)
 
     def test_an_author_without_a_role_only_looks(self):
         self.as_(self.loose)

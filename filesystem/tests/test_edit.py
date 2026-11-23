@@ -28,6 +28,8 @@ class EditTests(TerminalClient, TestCase):
         make_file(cls.main, "/home/ivan/vault.txt", body="locked", state="> encrypted hunter2")
         locked = make_file(cls.main, "/home/ivan/readonly.txt", body="fixed")
         Placement.objects.filter(pk=locked.placement.pk).update(owner="root", mode="644")
+        secret = make_file(cls.main, "/home/ivan/secret.txt", body="top secret")
+        Placement.objects.filter(pk=secret.placement.pk).update(owner="root", mode="600")
 
     def setUp(self):
         previous = get_script_prefix()
@@ -64,3 +66,9 @@ class EditTests(TerminalClient, TestCase):
     def test_a_bad_save_is_refused(self):
         saved = self.client.post(self.edit_url("/home/ivan/note.txt"), data=json.dumps({"text": 5}), content_type="application/json")
         self.assertEqual(saved.status_code, 400)
+
+    def test_reading_windows_need_the_right_to_read(self):
+        for name in ("fsview:content", "fsview:text"):
+            self.assertEqual(self.client.get(reverse(name) + "?path=/home/ivan/note.txt").status_code, 200)
+            self.assertEqual(self.client.get(reverse(name) + "?path=/home/ivan/secret.txt").status_code, 403)       # по прямой ссылке закрытое не отдаётся
+        self.assertIn("Permission denied", self.run_command("cnt /home/ivan/secret.txt")["output"])

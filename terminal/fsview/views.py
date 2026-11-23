@@ -47,11 +47,21 @@ def _player_file(request, path):
 
 
 def locate_player_file(request, path):
-    """Адрес ?path=: файл игрока в его сессии (filesystem.content.locate)."""
+    """Адрес ?path=: файл игрока в его сессии (filesystem.content.locate). Окна чтения (сырой вид, текст, документ) требуют
+    права r, как команда cnt: по прямой ссылке закрытый файл не отдаётся."""
+    from filesystem import rights
+
     if not is_player(request):
         raise PermissionDenied
     found = _player_file(request, path)
-    return None if found is None else (found[0], found[1].view)
+    if found is None:
+        return None
+    entry, context = found
+    try:
+        context.require(entry.path, "r")
+    except rights.Denied:
+        raise PermissionDenied from None
+    return entry, context.view
 
 
 def edit_url(path):

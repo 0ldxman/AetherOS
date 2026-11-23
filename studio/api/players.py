@@ -124,6 +124,14 @@ def _call(fn):
         raise HttpError(400, str(exc))
 
 
+def _target(request, player_id):
+    """Игрок, над которым действие: учётки, ключи и вход авторов меняет только суперадмин (себя — можно, кроме отключения входа)."""
+    user = _player(player_id)
+    if user.is_staff and not request.user.is_superuser and user.pk != request.user.pk:
+        raise HttpError(403, "Учётки, ключи и вход авторов меняет только суперадмин.")
+    return user
+
+
 def _card(user):
     data = logic.card(user)
     return PlCard(
@@ -157,41 +165,41 @@ def player_card(request, player_id: int):
 
 @router.post("/{int:player_id}/kick", response=PlCard)
 def kick(request, player_id: int, body: PlAccountIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     _call(lambda: logic.kick(user, body.account))
     return _card(user)
 
 
 @router.post("/{int:player_id}/unlock", response=PlCard)
 def unlock(request, player_id: int, body: PlAccountIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     _call(lambda: logic.unlock(user, body.account))
     return _card(user)
 
 
 @router.post("/{int:player_id}/keys", response=PlCard)
 def give_key(request, player_id: int, body: PlKeyIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     _call(lambda: logic.give_key(user, body.account, body.key.strip()))
     return _card(user)
 
 
 @router.post("/{int:player_id}/keys/take", response=PlCard)
 def take_key(request, player_id: int, body: PlKeyIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     _call(lambda: logic.take_key(user, body.account, body.name))
     return _card(user)
 
 
 @router.post("/{int:player_id}/reset", response=PlCard)
 def reset(request, player_id: int, body: PlResetIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     logic.reset(user, body.machine)
     return _card(user)
 
 
 @router.post("/{int:player_id}/ban", response=PlCard)
 def ban(request, player_id: int, body: PlBanIn):
-    user = _player(player_id)
+    user = _target(request, player_id)
     _call(lambda: logic.ban(request.user, user, body.banned))
     return _card(user)

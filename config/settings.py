@@ -20,9 +20,9 @@ env = environ.Env()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(BASE_DIR / ".env")
-NEXTCLOUD_URL = env("NEXTCLOUD_URL")
-NEXTCLOUD_USERNAME = env("NEXTCLOUD_USERNAME")
-NEXTCLOUD_APP_PASSWORD = env("NEXTCLOUD_APP_PASSWORD")
+NEXTCLOUD_URL = env("NEXTCLOUD_URL", default="")
+NEXTCLOUD_USERNAME = env("NEXTCLOUD_USERNAME", default="")
+NEXTCLOUD_APP_PASSWORD = env("NEXTCLOUD_APP_PASSWORD", default="")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
@@ -198,8 +198,8 @@ SOCIALACCOUNT_PROVIDERS = {
     "discord": {
         "SCOPE": ["identify", "email"],
         "APP": {
-            "client_id": env("DISCORD_CLIENT_ID"),
-            "secret": env("DISCORD_CLIENT_SECRET"),
+            "client_id": env("DISCORD_CLIENT_ID", default=""),
+            "secret": env("DISCORD_CLIENT_SECRET", default=""),
             "key": "",
         },
     }
@@ -267,3 +267,15 @@ TRASH_TTL = timedelta(days=7)
 TRASH_DAMAGE_STEP = timedelta(days=1)
 TRASH_DAMAGE_MAX = 5
 
+
+
+# Журнал: всё уровня INFO и выше (world, graph, assets…) и ошибки запросов — в консоль. Без этого log.info терялся,
+# а 500-е при DEBUG=False не писались никуда.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "root": {"handlers": ["console"], "level": "WARNING" if TESTING else "INFO"},
+    "loggers": {"django": {"handlers": ["console"], "level": "WARNING", "propagate": False}},
+}

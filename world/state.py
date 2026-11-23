@@ -8,6 +8,7 @@
 """
 import re
 
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -163,14 +164,20 @@ def evaluate(_depth=0):
     if _depth >= DEPTH:
         _log("trigger", "", "цепочка триггеров слишком длинная: остановлена", "мир")
         return
-    for trigger in WorldTrigger.objects.filter(active=True):
-        trigger.refresh_from_db(fields=["was_true", "fired_count"])     # вложенная проверка могла уже обработать его
-        now = _truth(trigger.condition)
-        if now == trigger.was_true:
-            continue
-        WorldTrigger.objects.filter(pk=trigger.pk).update(was_true=now)
-        if now and (trigger.repeat or not trigger.fired_count):
-            fire(trigger, _depth + 1)
+    for pk in list(WorldTrigger.objects.filter(active=True).values_list("pk", flat=True)):
+        go = None
+        with transaction.atomic():                   # переход «ложь → правда» под блокировкой: два процесса не сработают оба
+            trigger = WorldTrigger.objects.select_for_update().filter(pk=pk, active=True).first()
+            if trigger is None:
+                continue
+            now = _truth(trigger.condition)
+            if now == trigger.was_true:
+                continue
+            WorldTrigger.objects.filter(pk=trigger.pk).update(was_true=now)
+            if now and (trigger.repeat or not trigger.fired_count):
+                go = trigger
+        if go is not None:
+            fire(go, _depth + 1)
 
 
 def fire(trigger, _depth=0, by="", user=None):

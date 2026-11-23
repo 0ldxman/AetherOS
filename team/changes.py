@@ -35,7 +35,7 @@ TAIL_WORDS = {
     "folder": "папка", "file": "файл", "folders": "папка", "links": "ссылка", "rights": "права", "reset": "сброс", "open": "своя копия",
     "labels": "подпись", "disable": "отключение", "territory": "территории", "apply": "покраска", "erase": "ластик",
     "transfer": "передача", "roles": "роль", "authors": "автор", "import": "загрузка", "text-files": "файл",
-    "take": "забран", "ban": "вход", "move": "статус", 
+    "take": "забран", "ban": "вход",
 }
 
 

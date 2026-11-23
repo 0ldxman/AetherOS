@@ -4,6 +4,7 @@
 Имена событий (NAMES) — словарь для журнала и Студии; новое событие добавляется сюда же.
 """
 import logging
+from django.db import transaction
 
 log = logging.getLogger("engine")
 
@@ -116,15 +117,17 @@ def emit(name, user=None, *, machine=None, login="", source="", **data):
         user = None
     host = getattr(machine, "hostname", machine) or ""
     try:
-        event = Event.objects.create(name=name[:40], user=user, host=str(host)[:64], login=str(login or "")[:64], source=str(source or "")[:200],
-                                     data=_clean(data))
+        with transaction.atomic():                      # savepoint: сбой записи не ломает транзакцию действия игрока
+            event = Event.objects.create(name=name[:40], user=user, host=str(host)[:64], login=str(login or "")[:64], source=str(source or "")[:200],
+                                         data=_clean(data))
     except Exception:                                   # noqa: BLE001 — событие не должно ронять действие игрока
         log.exception("emit %s failed", name)
         return None
     try:
         from graph import runtime
 
-        runtime.dispatch(event)
+        with transaction.atomic():                      # savepoint: упавший сценарий откатывает только себя, не письмо игрока
+            runtime.dispatch(event)
     except Exception:                                   # noqa: BLE001 — сломанный сценарий не роняет игру
         log.exception("graph on %s failed", name)
     return event

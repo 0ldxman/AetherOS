@@ -14,7 +14,7 @@ export const GROUPS: NavGroup[] = [
   {
     id: "players", title: "Игроки", items: [
       { href: "#/players", label: "Игроки", section: ["players"], right: "players", icon: "players" },
-      { href: "#/mail", label: "Почта", section: ["mail", "talk"], right: "mail", icon: "mail" },
+      { href: "#/mail", label: "Почта", section: ["mail"], right: "mail", icon: "mail" },
       { href: "#/news", label: "Новости", section: ["news"], right: "news", icon: "news" },
       { href: "#/support", label: "Поддержка", section: ["support"], right: "support", icon: "support" },
       { href: "#/air", label: "Эфир", section: ["air"], right: "air", icon: "radio" },

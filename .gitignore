@@ -18,3 +18,7 @@ staticfiles/
 # студия: зависимости и сборка фронта (собирается npm run build)
 studio/frontend/node_modules/
 studio/static/studio/app/
+
+# тестовые артефакты карты, локальные базы
+map/build/
+*.sqlite3
