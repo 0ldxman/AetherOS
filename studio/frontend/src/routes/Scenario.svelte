@@ -3,6 +3,7 @@
   // «Поток» (карта этапов и ветвлений: что пройдено, где стоим, чего ждём), «Пульт» (управление, раскладку делает автор), «Журнал».
   // Прохождение одно на весь мир: игроков по отдельности здесь не отслеживают.
   import { onMount } from "svelte";
+  import { poll } from "../lib/poll";
   import { api, problem, type Schemas } from "../lib/api";
   import Icon from "../lib/Icon.svelte";
   import PageHead from "../lib/PageHead.svelte";
@@ -39,10 +40,7 @@
 
   onMount(() => {
     load();
-    const tick = () => { if (!document.hidden) load(); };
-    const timer = setInterval(tick, 5000);
-    document.addEventListener("visibilitychange", tick);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+    return poll(load, 5000);
   });
 
   const card = $derived(page?.card);

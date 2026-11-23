@@ -84,7 +84,7 @@ class Wait(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.CASCADE, related_name="+")
     node = models.CharField(max_length=32)
     out = models.CharField("Выход", max_length=32)
-    kind = models.CharField(max_length=10, choices=Kind.choices)
+    kind = models.CharField(max_length=10, choices=Kind.choices, db_index=True)
     event = models.CharField(max_length=40, blank=True, db_index=True)
     anyone = models.BooleanField("Событие любого игрока", default=False)
     data = models.JSONField("Значения с проводов", default=dict, blank=True)

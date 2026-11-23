@@ -33,7 +33,7 @@
     };
     document.addEventListener("focusin", focusin);
     document.addEventListener("focusout", focusout);
-    const timer = setInterval(place, 250);
+    const timer = setInterval(() => { if (!document.hidden) place(); }, 250);
     return () => {
       document.removeEventListener("focusin", focusin);
       document.removeEventListener("focusout", focusout);

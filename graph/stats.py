@@ -20,6 +20,13 @@ def of(graph):
     return {"nodes": nodes, "running": runs.filter(status=Run.Status.RUNNING).count(), "outcomes": outcomes, "waiting": waiting}
 
 
+def counts(graph):
+    """Для карточки: сколько потоков идёт и сколько из них стоят на ожидании (без разбора по нодам)."""
+    running = Run.objects.filter(graph=graph, status=Run.Status.RUNNING).count()
+    waiting = Wait.objects.filter(run__graph=graph, run__status=Run.Status.RUNNING).values("run").distinct().count() if running else 0
+    return {"running": running, "waiting": waiting}
+
+
 def waiting(graph, node_id, limit=50):
     """Кто ждёт на ноде: (игрок или None, с какого момента)."""
     rows = Wait.objects.filter(run__graph=graph, run__status=Run.Status.RUNNING, node=node_id).select_related("run__user").order_by("created_at")

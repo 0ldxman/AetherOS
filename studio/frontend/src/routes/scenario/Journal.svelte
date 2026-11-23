@@ -2,6 +2,7 @@
   // «Журнал»: что происходило в сценарии — кто нажал на пульте, какой этап пройден, чья ветка занята, кто вошёл в группу.
   // Записи от новых к старым; новые подтягиваются сами. Сброс сценария журнал не стирает.
   import { onMount } from "svelte";
+  import { poll } from "../../lib/poll";
   import { api, type Schemas } from "../../lib/api";
   import { full } from "../../lib/time";
 
@@ -56,10 +57,7 @@
 
   onMount(() => {
     first();
-    const tick = () => { if (!document.hidden) first(); };
-    const timer = setInterval(tick, 5000);
-    document.addEventListener("visibilitychange", tick);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+    return poll(first, 5000);
   });
 
   const day = (stamp: string) => {

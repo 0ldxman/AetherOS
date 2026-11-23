@@ -80,7 +80,17 @@ class Box:
         found = found.filter(user=self.user) if self.user is not None else found.filter(user=None, session_key=self.session_key)
         return {mark.path: mark for mark in found}
 
-    def _row(self, entry, marks, context):
+    def _members(self, entries):
+        """Вложения писем одним запросом: {номер объекта-письма: [члены]}."""
+        from filesystem.models import ItemMember
+
+        ids = {entry.item.pk for entry in entries if entry.item is not None}
+        found = {}
+        for member in ItemMember.objects.filter(archive_id__in=ids).select_related("item").order_by("path") if ids else ():
+            found.setdefault(member.archive_id, []).append(member)
+        return found
+
+    def _row(self, entry, marks, context, members=None):
         from filesystem.content.window import layers_block
 
         locked = layers_block(entry)
@@ -89,11 +99,12 @@ class Box:
         if locked:
             letter = letters.Letter(letter.headers, "")
         mark = marks.get(entry.path)
-        members = []
+        attachments = []
         if entry.item is not None and not locked:
-            members = list(entry.item.members.select_related("item").order_by("path"))
+            attachments = (members.get(entry.item.pk, []) if members is not None
+                           else list(entry.item.members.select_related("item").order_by("path")))
         return Row(path=entry.path, name=posixpath.basename(entry.path), folder=self.folder_of(entry.path), letter=letter, locked=locked,
-                   read=bool(mark and mark.read_at), arrived=mark.arrived_at if mark else None, attachments=members)
+                   read=bool(mark and mark.read_at), arrived=mark.arrived_at if mark else None, attachments=attachments)
 
     def letters_in(self, folder):
         """Письма папки, новые сверху."""
@@ -102,7 +113,9 @@ class Box:
         if not self.view.is_directory(path):
             return []
         marks, context = self._marks(), self.context()
-        rows = [self._row(entry, marks, context) for entry in self.view.children(path) if not entry.is_dir]
+        entries = [entry for entry in self.view.children(path) if not entry.is_dir]
+        members = self._members(entries)
+        rows = [self._row(entry, marks, context, members) for entry in entries]
         rows.sort(key=_moment, reverse=True)
         return rows
 

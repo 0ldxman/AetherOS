@@ -243,9 +243,9 @@ def listen(user, freq, since, after=0, now=None, keys=frozenset(), air_key=""):
     from air import cipher, events
     from machines.world import chrono
 
-    now = now or timezone.now()
+    polled, now = now is None, now or timezone.now()
     freq = parse_freq(freq)
-    events.flush(now)
+    events.flush(now, throttled=polled)
     band = band_of(freq)
     rows = _audible(user).filter(freq=freq, created_at__gte=max(since, now - KEEP), created_at__lte=now, pk__gt=after).order_by("created_at", "pk")[:200]
     found = []
@@ -268,8 +268,8 @@ def scan(user, low, high, now=None, keys=frozenset()):
     from air import events
     from secure.access import satisfied
 
-    now = now or timezone.now()
-    events.flush(now)
+    polled, now = now is None, now or timezone.now()
+    events.flush(now, throttled=polled)
     low, high = parse_freq(low), parse_freq(high)
     if high < low:
         low, high = high, low

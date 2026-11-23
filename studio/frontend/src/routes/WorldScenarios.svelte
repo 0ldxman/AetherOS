@@ -2,6 +2,7 @@
   // Вкладка «Сценарии» мира: короткие карточки сценариев. Карточка открывает страницу сценария (поток, пульт, журнал).
   // На карточке только то, что нужно без открытия: состояние, ошибки, выключатель, правка и сброс.
   import { onMount } from "svelte";
+  import { poll } from "../lib/poll";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import Icon from "../lib/Icon.svelte";
@@ -41,10 +42,7 @@
 
   onMount(() => {
     load();
-    const tick = () => { if (!document.hidden) load(); };                     // скрытая вкладка браузера не опрашивает
-    const timer = setInterval(tick, 5000);
-    document.addEventListener("visibilitychange", tick);
-    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", tick); };
+    return poll(load, 5000);
   });
 
   async function setActive(card: Card, active: boolean) {

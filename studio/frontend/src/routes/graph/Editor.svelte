@@ -2,7 +2,8 @@
   // Холст сценария (приложение graph): ноды и провода, Shift+A — добавить ноду, M — выключить, Ctrl+D — копия, Delete — убрать,
   // Ctrl+G — собрать выбранное в группу, Tab — войти в группу или выйти, Ctrl+H — спрятать неподключённые сокеты, Ctrl+S — сохранить.
   // Справа свойства выбранной ноды и проверка. Счётчики на нодах обновляются сами. Холст показывает один уровень: граф или группу.
-  import { onDestroy, onMount, untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
+  import { poll } from "../../lib/poll";
   import { Background, Controls, MiniMap, Panel, SvelteFlow, type Connection, type Edge, type Node } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/style.css";
   import { api, problem, type Schemas } from "../../lib/api";
@@ -155,16 +156,14 @@
     if (found.data) fill(found.data);
     else toast("Сценарий не найден.", "error");
   }
-  let poll: ReturnType<typeof setInterval>;
   onMount(() => {
     load();
-    poll = setInterval(async () => {
+    return poll(async () => {
       if (!graph) return;
       const { data } = await api.GET("/studio/api/world/graphs/{graph_id}/stats", { params: { path: { graph_id: id } } });
       if (data) stats = data;
     }, 10000);
   });
-  onDestroy(() => clearInterval(poll));
 
   // проверка черновика на лету
   let checkTimer: ReturnType<typeof setTimeout>;

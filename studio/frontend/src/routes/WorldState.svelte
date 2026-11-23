@@ -1,7 +1,8 @@
 <script lang="ts">
   // Пульт мира: мировые метки, счётчики с вкладами и порогами, триггеры, журнал. Одно состояние на всех игроков.
   // Логика в world/state.py; здесь показ и кнопки автора.
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
+  import { poll } from "../lib/poll";
   import { api, problem, type Schemas } from "../lib/api";
   import Dialog from "../lib/Dialog.svelte";
   import ActionsEditor from "../lib/ActionsEditor.svelte";
@@ -19,7 +20,6 @@
   type Moment = Schemas["WsMoment"];
 
   let data = $state<State | null>(null);
-  let timer: ReturnType<typeof setInterval>;
 
   function take(next: State | undefined, error?: unknown) {
     if (error || !next) { toast(problem(error), "error"); return false; }
@@ -30,8 +30,7 @@
     const { data: next } = await api.GET("/studio/api/world/state");
     if (next) data = next;
   }
-  onMount(() => { load(); timer = setInterval(load, 10000); });
-  onDestroy(() => clearInterval(timer));
+  onMount(() => { load(); return poll(load, 10000); });
 
   const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
   const when = (iso: string | null | undefined) => { if (!iso) return ""; const d = new Date(iso); return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };

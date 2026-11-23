@@ -437,14 +437,14 @@ def _num(value):
 
 
 def _card(graph):
-    found = stats.of(graph)
+    found = stats.counts(graph)
     return PnCard(id=graph.pk, slug=graph.slug, title=graph.title, active=graph.active, running=found["running"], waiting=found["waiting"],
-                  errors=sum(1 for p in check.problems(graph.doc, graph.slug, graph.owner) if p["level"] == "error"), here=flowmap.here_titles(graph))
+                  errors=check.error_count(graph), here=flowmap.here_titles(graph) if found["waiting"] else [])
 
 
 def _controls(graph):
     """Управление сценария по порядку на холсте: node → PnControl."""
-    flat = runtime.Doc(runtime.flatten(graph.doc, graph.slug))
+    flat = runtime.doc_of(graph)
     shared = runtime.variables(graph)
     found = {}
     for node_id, node in sorted(flat.nodes.items(), key=lambda item: (item[1].get("x") or 0, item[1].get("y") or 0)):

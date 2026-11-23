@@ -5,7 +5,7 @@ from importlib import import_module
 log = logging.getLogger("world")
 
 TICKS = (("moments", "world.moments"), ("outbox", "characters.outbox"), ("rotation", "forum.rotation"), ("graph", "graph.runtime"),
-         ("power", "machines.world.power"))
+         ("power", "machines.world.power"), ("retention", "world.retention"))
 
 
 class WorldTickMiddleware:

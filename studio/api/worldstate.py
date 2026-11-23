@@ -243,7 +243,7 @@ def uses(request):
 def read(request):
     from machines.world import chrono
 
-    moments.tick(force=True)
+    moments.tick()                          # не чаще TICK: страница опрашивается, а мир тикает и так (world/middleware.py)
     return WsState(
         moments=[_moment(m) for m in WorldMoment.objects.all()], game_now=chrono.game_now(),
         flags=[WsFlag(name=name, label=info.label if info else "", on=bool(row and row.value), changed_at=row.changed_at if row else None,

@@ -223,7 +223,7 @@ class Session(models.Model):
     )
 
     seen_at = models.DateTimeField(
-        null=True, blank=True, help_text="Когда игрок последний раз работал здесь: рабочий стол или терминал (отмечается раз в полминуты).",
+        null=True, blank=True, db_index=True, help_text="Когда игрок последний раз работал здесь: рабочий стол или терминал (отмечается раз в полминуты).",
     )
 
     kick_at = models.DateTimeField(

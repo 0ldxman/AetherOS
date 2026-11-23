@@ -359,12 +359,17 @@ def _box(run):
     return Box.of_profile(profile, run.user) if profile is not None else None
 
 
-def _facts(run):
+def _facts(run, memo=None):
+    """Факты игрока потока. memo — на один проход проверок (тик, «Пока»): строятся раз на игрока; после срабатывания memo чистят."""
     if run.user is None:
         return frozenset()
     from engine.facts import player_facts
 
-    return player_facts(run.user)
+    if memo is None:
+        return player_facts(run.user)
+    if run.user.pk not in memo:
+        memo[run.user.pk] = player_facts(run.user)
+    return memo[run.user.pk]
 
 
 _parsed = {}
@@ -393,7 +398,7 @@ def _truth(value):
     return str(value or "").strip().lower() not in ("", "0", "false", "no", "нет")
 
 
-def _holds(text, run, known=None):
+def _holds(text, run, known=None, memo=None):
     """Условие: да/нет с провода или текст условия на факты игрока."""
     from secure.access import satisfied
 
@@ -404,7 +409,7 @@ def _holds(text, run, known=None):
     except ValueError as error:
         _log(run.graph, f"условие «{text}»: {error}", run.user)
         return False
-    return bool(satisfied(_with_vars(condition, run.graph), _facts(run) if known is None else known))
+    return bool(satisfied(_with_vars(condition, run.graph), _facts(run, memo) if known is None else known))
 
 
 _VAR = re.compile(r"^var:([^<>=]+?)(?:(>=|<=|>|<|=)(.+))?$")
@@ -2247,9 +2252,11 @@ def tick(force=False):
     done = 0
     for wait in list(Wait.objects.filter(until__lte=timezone.now(), run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
         done += bool(resume(wait))
-    for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph")):
-        if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run):
+    memo = {}
+    for wait in list(Wait.objects.filter(kind=Wait.Kind.CONDITION, run__status=Run.Status.RUNNING, run__graph__active=True).select_related("run__graph", "run__user")):
+        if _holds(resolved(wait.run, doc_of(wait.run.graph), wait.node).get("condition"), wait.run, memo=memo):
             done += bool(resume(wait))
+            memo.clear()                                 # поток сделал своё: факты могли измениться
     done += _time_starts()
     done += whiles()
     return done
@@ -2262,7 +2269,7 @@ def whiles(event=None):
     for row in Start.objects.filter(event=N.WHILE_EVENT, graph__active=True).select_related("graph"):
         rows.setdefault((row.graph_id, row.node), (row.graph, set()))[1].add(row.out)
     ctx = _ctx_of(event) if event is not None else {}
-    done = 0
+    done, memo = 0, {}
     for (_, node_id), (graph, outs) in rows.items():
         doc = doc_of(graph)
         kind = doc.kind(node_id)
@@ -2278,13 +2285,14 @@ def whiles(event=None):
         for user in users:
             run = Run(graph=graph, user=user, ctx=ctx, state={})
             value = resolved(run, doc, node_id).get("in" if bound else "condition")
-            now = value not in (None, "") and _holds(value, run)
+            now = value not in (None, "") and _holds(value, run, memo=memo)
             with transaction.atomic():
                 mark, _ = Mark.objects.select_for_update().get_or_create(graph=graph, node=node_id, user=user)
                 if bool(mark.value) == now:
                     continue
                 mark.value = int(now)
                 mark.save(update_fields=["value"])
+            memo.clear()                                 # сейчас сработает: факты могли измениться
             if bound:
                 done += _bound(graph, doc, node_id, kind, now)
             elif ("true" if now else "false") in outs:

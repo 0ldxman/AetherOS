@@ -8,6 +8,8 @@ import re
 from datetime import timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
@@ -204,6 +206,11 @@ def flush_replies(now=None):
     return made
 
 
-def flush(now=None):
-    """Всё наступившее в эфир: выпуски по расписанию и отложенные ответы."""
+FLUSH_EVERY = 0 if getattr(settings, "TESTING", False) else 2     # секунды: опросы слушателей выпускают наступившее не чаще
+
+
+def flush(now=None, *, throttled=False):
+    """Всё наступившее в эфир: выпуски по расписанию и отложенные ответы. throttled — из опроса: не чаще FLUSH_EVERY на все процессы."""
+    if throttled and FLUSH_EVERY and not cache.add("air:flush", 1, FLUSH_EVERY):
+        return 0
     return flush_broadcasts(now) + flush_replies(now)

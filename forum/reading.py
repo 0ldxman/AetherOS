@@ -38,12 +38,13 @@ def summaries(topics, user):
     ids = [topic.pk for topic in topics]
     marks = _thresholds(user, ids)
     out = {pk: {"excerpt": "", "replies": 0, "last_name": "", "last_at": None, "new": 0, "unseen": False} for pk in ids}
-    rows = Post.objects.filter(topic_id__in=ids, hidden_at__isnull=True).values_list("topic_id", "root", "name", "created_at", "author_id", "text")
-    for topic_id, root, name, created, author_id, text in rows.order_by("created_at", "id"):
+    posts = Post.objects.filter(topic_id__in=ids, hidden_at__isnull=True)
+    for topic_id, text in posts.filter(root=True).values_list("topic_id", "text"):       # текст нужен только у первого сообщения
+        out[topic_id]["excerpt"] = plain(text)
+    rows = posts.values_list("topic_id", "root", "name", "created_at", "author_id")
+    for topic_id, root, name, created, author_id in rows.order_by("created_at", "id"):
         found = out[topic_id]
-        if root:
-            found["excerpt"] = plain(text)
-        else:
+        if not root:
             found["replies"] += 1
         found["last_name"], found["last_at"] = name, created
         mark = marks.get(topic_id)

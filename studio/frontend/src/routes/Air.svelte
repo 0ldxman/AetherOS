@@ -1,7 +1,8 @@
 <script lang="ts">
   // Эфир в Студии: живая лента всех частот с модерацией, позывные с настоящими игроками, частоты (полосы и станции), жалобы.
   // Песочные передачи авторов помечены: настоящие игроки их не слышат.
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
+  import { poll } from "../lib/poll";
   import { api, problem, type Schemas } from "../lib/api";
   import Icon from "../lib/Icon.svelte";
   import PageHead from "../lib/PageHead.svelte";
@@ -29,7 +30,6 @@
   let freq = $state("");
   let q = $state("");
   let paused = $state(false);
-  let timer: ReturnType<typeof setInterval> | undefined;
   let stations = $state<Schemas["AirStation"][]>([]);
   let say = $state({ station: 0, freq: "14.230", text: "" });
 
@@ -42,10 +42,8 @@
   let filterTimer: ReturnType<typeof setTimeout>;
   $effect(() => { freq; q; clearTimeout(filterTimer); filterTimer = setTimeout(() => loadFeed(true), 250); });
   $effect(() => {
-    clearInterval(timer);
-    if (current === "live" && !paused) timer = setInterval(() => loadFeed(false), 3000);
+    if (current === "live" && !paused) return poll(() => loadFeed(false), 3000);
   });
-  onDestroy(() => clearInterval(timer));
 
   function patch(row: Row) { rows = rows.map((r) => (r.id === row.id ? row : r)); }
   async function hide(row: Row) {

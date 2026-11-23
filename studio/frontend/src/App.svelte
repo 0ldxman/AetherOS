@@ -17,7 +17,6 @@
   import Systems from "./routes/Systems.svelte";
   import World from "./routes/World.svelte";
   import Scenario from "./routes/Scenario.svelte";
-  import GraphEditor from "./routes/graph/Editor.svelte";
   import Scenes from "./routes/Scenes.svelte";
   import Formats from "./routes/Formats.svelte";
   import Encodings from "./routes/Encodings.svelte";
@@ -253,7 +252,13 @@
     {:else if page.name === "scenario"}
       {#key page.id}<Scenario id={page.id} tab={page.tab} />{/key}
     {:else if page.name === "graph"}
-      {#key page.id}<GraphEditor id={page.id} />{/key}
+      {#await import("./routes/graph/Editor.svelte")}
+        <p class="muted" style="padding: 20px">Загрузка редактора…</p>
+      {:then loaded}
+        {#key page.id}<loaded.default id={page.id} />{/key}
+      {:catch}
+        <p class="muted" style="padding: 20px">Редактор не загрузился. Обновите страницу.</p>
+      {/await}
     {:else if page.name === "formats"}
       <Formats name={page.id} />
     {:else if page.name === "encodings"}

@@ -343,7 +343,9 @@ def visible(user, host="", login="", channel="mail", only=None):
         rows = rows.filter(channel=channel)
     if only is not None:
         rows = rows.filter(graph=only[0], node=only[1])
-    tries = {(t.graph_id, t.node): t for t in OfferTry.objects.filter(user=user, closed=True)}
+    rows = list(rows)
+    graphs = {row.graph_id for row in rows}
+    tries = {(t.graph_id, t.node): t for t in OfferTry.objects.filter(user=user, closed=True, graph_id__in=graphs)} if graphs else {}
     places = {}
     for row in sorted(rows, key=lambda r: (r.user_id is None, r.profile_id is None)):     # свои строки, потом учётки — первыми
         places.setdefault((row.graph_id, row.node), []).append(row)

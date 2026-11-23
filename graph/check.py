@@ -330,3 +330,18 @@ def problems(raw, slug="", owner=""):
             first = sorted(group)[0]
             add(first if "/" not in first else first.split("/")[0], "цикл без ожидания: ход остановится на лимите")
     return out
+
+
+ERRORS_TTL = 30          # секунды: карточки сценариев опрашиваются часто, а ссылки на ключи и вложенные графы меняются редко
+
+
+def error_count(graph):
+    """Сколько ошибок у сценария (для карточки). Кэш по версии графа: новая правка — пересчёт сразу, внешние причины — за ERRORS_TTL."""
+    from django.core.cache import cache
+
+    key = f"graph:errors:{graph.pk}:{graph.updated_at.timestamp() if graph.updated_at else 0}"
+    found = cache.get(key)
+    if found is None:
+        found = sum(1 for p in problems(graph.doc, graph.slug, graph.owner) if p["level"] == "error")
+        cache.set(key, found, ERRORS_TTL)
+    return found

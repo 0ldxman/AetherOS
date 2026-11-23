@@ -15,7 +15,8 @@ class Event(models.Model):
 
     class Meta:
         ordering = ("-at", "-id")
-        indexes = [models.Index(fields=("user", "-at"), name="engine_event_user_at")]
+        indexes = [models.Index(fields=("user", "-at"), name="engine_event_user_at"),
+                   models.Index(fields=("user", "name", "-at"), name="engine_event_user_name_at")]
         verbose_name = "Событие"
         verbose_name_plural = "События"
 
